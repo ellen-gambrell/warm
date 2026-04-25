@@ -1,0 +1,69 @@
+name: Deploy warm.care
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build frontend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      # Setup SSH
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p 22 shimmer.ing >> ~/.ssh/known_hosts 2>/dev/null
+
+      # Deploy backend + passenger_wsgi to ~/warmcare/
+      - name: Deploy backend
+        run: |
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='frontend' \
+            --exclude='__pycache__' \
+            --exclude='.env' \
+            --exclude='*.db' \
+            --exclude='stderr.log' \
+            --exclude='tmp' \
+            -e "ssh -i ~/.ssh/deploy_key -p 22" \
+            ./ shimmeri@shimmer.ing:~/warmcare/
+
+      # Deploy built frontend to ~/public_html/warm.care/
+      - name: Deploy frontend
+        run: |
+          rsync -avz --delete \
+            --exclude='.htaccess' \
+            -e "ssh -i ~/.ssh/deploy_key -p 22" \
+            frontend/dist/ shimmeri@shimmer.ing:~/public_html/warm.care/
+
+      # Install deps and restart Passenger
+      - name: Restart app
+        run: |
+          ssh -i ~/.ssh/deploy_key -p 22 shimmeri@shimmer.ing '
+            source ~/virtualenv/warmcare/3.11/bin/activate &&
+            cd ~/warmcare &&
+            pip install -q -r backend/requirements.txt &&
+            mkdir -p tmp &&
+            touch tmp/restart.txt
+          '

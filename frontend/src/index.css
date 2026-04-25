@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #0f0f1a;
+  --color-surface: #1a1a2e;
+  --color-surface-raised: #252540;
+  --color-border: #2e2e50;
+  --color-text: #e8e8f0;
+  --color-text-muted: #9090b0;
+  --color-accent: #7b6ef6;
+  --color-accent-warm: #f0956a;
+  --color-confirm: #4caf82;
+  --color-danger: #e05c6a;
+  --min-touch: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* All interactive elements: minimum 48px touch target */
+button, a, [role="button"], [role="link"] {
+  min-height: var(--min-touch);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+/* Focus ring — always visible, never hidden */
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* No tap highlight flash on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}

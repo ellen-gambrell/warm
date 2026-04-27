@@ -69,7 +69,8 @@ Copyright: "© 2026 Quantum Moon LLC. All rights reserved."
 
 ## ⚠️ Flags
 
-<!-- Any agent adds here. All agents check first, every session. -->
+[Security 2026-04-26] ⚠️ SECURITY CRITICAL — JWT stored in localStorage (XSS-extractable). Move to HttpOnly cookie before any additional integrations ship. Builder should pause and address first.
+[Security 2026-04-26] ⚠️ SECURITY CRITICAL — /api/documents/synopsis has no auth guard. Unauthenticated Gemini API access + potential data exposure. Add `Depends(get_current_user)` immediately.
 
 ---
 

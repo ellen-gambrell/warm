@@ -30,6 +30,9 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
   },
+  optimizeDeps: {
+    include: ['react-pdf'],
+  },
   server: {
     proxy: {
       '/api': 'http://localhost:8000',

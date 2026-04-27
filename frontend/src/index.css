@@ -1,18 +1,103 @@
 @import "tailwindcss";
 
-:root {
-  --color-bg: #0f0f1a;
-  --color-surface: #1a1a2e;
-  --color-surface-raised: #252540;
-  --color-border: #2e2e50;
-  --color-text: #e8e8f0;
-  --color-text-muted: #9090b0;
-  --color-accent: #7b6ef6;
-  --color-accent-warm: #f0956a;
-  --color-confirm: #4caf82;
-  --color-danger: #e05c6a;
-  --min-touch: 48px;
+/* ─────────────────────────────────────────────────────────────────────────────
+   WARM DARK (default / fallback)
+   Warm brown-black background, amber accent. Best for nighttime use in bed.
+   Text contrast:   #f5f0e8 on #1a1714  → 16:1  ✓
+   Accent on bg:    #e8a045 on #1a1714  →  7.2:1 ✓
+   White on accent: #ffffff on #e8a045  →  3.1:1 (decorative / large text only)
+   ───────────────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme="warm-dark"] {
+  --color-bg:            #1a1714;
+  --color-surface:       #242019;
+  --color-surface-raised:#2e2922;
+  --color-border:        #3d3730;
+  --color-text:          #f5f0e8;
+  --color-text-muted:    #a09585;
+  --color-accent:        #e8a045;
+  --color-accent-warm:   #e07858;
+  --color-confirm:       #4caf82;
+  --color-danger:        #e05c6a;
+  --min-touch:           48px;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   WARM LIGHT (cream / parchment)
+   Off-white background, dark terracotta accent. Best for bright daytime use.
+   Text contrast:   #1c1814 on #faf7f2  → 16.9:1 ✓
+   Accent on bg:    #7d3010 on #faf7f2  →  8.5:1 ✓
+   White on accent: #ffffff on #7d3010  →  9.1:1 ✓
+   ───────────────────────────────────────────────────────────────────────────── */
+[data-theme="warm-light"] {
+  --color-bg:            #faf7f2;
+  --color-surface:       #f0ece3;
+  --color-surface-raised:#e5dfd4;
+  --color-border:        #cdc4b6;
+  --color-text:          #1c1814;
+  --color-text-muted:    #7a6e62;
+  --color-accent:        #7d3010;
+  --color-accent-warm:   #5c2008;
+  --color-confirm:       #245434;
+  --color-danger:        #b8202e;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ADAPTIVE
+   Follows iOS/Android system light/dark preference automatically.
+   Light = warm-light values; Dark = warm-dark values.
+   ───────────────────────────────────────────────────────────────────────────── */
+[data-theme="adaptive"] {
+  --color-bg:            #faf7f2;
+  --color-surface:       #f0ece3;
+  --color-surface-raised:#e5dfd4;
+  --color-border:        #cdc4b6;
+  --color-text:          #1c1814;
+  --color-text-muted:    #7a6e62;
+  --color-accent:        #7d3010;
+  --color-accent-warm:   #5c2008;
+  --color-confirm:       #245434;
+  --color-danger:        #b8202e;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="adaptive"] {
+    --color-bg:            #1a1714;
+    --color-surface:       #242019;
+    --color-surface-raised:#2e2922;
+    --color-border:        #3d3730;
+    --color-text:          #f5f0e8;
+    --color-text-muted:    #a09585;
+    --color-accent:        #e8a045;
+    --color-accent-warm:   #e07858;
+    --color-confirm:       #4caf82;
+    --color-danger:        #e05c6a;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HIGH CONTRAST
+   Near-white background, near-black text, deep blue accent.
+   Text contrast:   #0a0a04 on #fffff8  → 20.8:1 ✓
+   Accent on bg:    #003f8a on #fffff8  → 10.0:1 ✓
+   White on accent: #ffffff on #003f8a  → 10.0:1 ✓
+   ───────────────────────────────────────────────────────────────────────────── */
+[data-theme="high-contrast"] {
+  --color-bg:            #fffff8;
+  --color-surface:       #f5f5ea;
+  --color-surface-raised:#ebebd8;
+  --color-border:        #777770;
+  --color-text:          #0a0a04;
+  --color-text-muted:    #3d3d36;
+  --color-accent:        #003f8a;
+  --color-accent-warm:   #002a5c;
+  --color-confirm:       #00520e;
+  --color-danger:        #a50014;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE STYLES
+   ───────────────────────────────────────────────────────────────────────────── */
 
 * {
   box-sizing: border-box;

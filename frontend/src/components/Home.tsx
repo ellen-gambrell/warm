@@ -1,14 +1,18 @@
 import { useProfile } from '../context/ProfileContext'
+import { navigate } from '../App'
 
 const SHORTCUTS = [
+  { id: 'menu', label: "Today's Menu", icon: '🍽️', color: '#e8a045', href: '/menu' },
   { id: 'chat', label: 'Ask anything', icon: '💬', color: '#7b6ef6', href: '/chat' },
   { id: 'gmail', label: 'Gmail', icon: '📧', color: '#4285f4', href: '/gmail' },
   { id: 'drive', label: 'Google Drive', icon: '📁', color: '#34a853', href: '/drive' },
-  { id: 'money', label: 'My Money', icon: '💰', color: '#f0956a', href: '/money' },
+  { id: 'money', label: 'Venmo', icon: '💸', color: '#3d95ce', href: '/money' },
+  { id: 'checkrun', label: 'Check Run', icon: '📋', color: '#6c8ebf', href: '/check-run' },
   { id: 'gif', label: 'Find a GIF', icon: '🎭', color: '#e05c6a', href: '/gif' },
   { id: 'wordle', label: 'Wordle', icon: '🟩', color: '#6aaa64', href: 'https://www.nytimes.com/games/wordle/index.html' },
-  { id: 'candy', label: 'Candy Crush', icon: '🍬', color: '#ff6b9d', href: 'https://www.king.com/game/candycrush' },
+  { id: 'candy', label: 'Candy Crush', icon: '🍬', color: '#ff6b9d', href: 'https://app.appsflyer.com/id850417475?pid=king-media&c=kingWeb' },
   { id: 'solitaire', label: 'Solitaire', icon: '🃏', color: '#4caf82', href: 'https://solitaired.com' },
+  { id: 'settings', label: 'Settings', icon: '⚙️', color: 'var(--color-text-muted)', href: '/settings' },
 ]
 
 export default function Home() {
@@ -45,13 +49,13 @@ export default function Home() {
       >
         {SHORTCUTS.map((s) => {
           const isExternal = s.href.startsWith('http')
-          const Tag = isExternal ? 'a' : 'a'
           return (
-            <Tag
+            <a
               key={s.id}
               href={s.href}
               target={isExternal ? '_blank' : undefined}
               rel={isExternal ? 'noopener noreferrer' : undefined}
+              onClick={isExternal ? undefined : (e) => { e.preventDefault(); navigate(s.href) }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -67,29 +71,16 @@ export default function Home() {
                 color: 'var(--color-text)',
                 transition: 'border-color 0.15s',
               }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = s.color)}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
               onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = s.color)}
               onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
             >
               <span style={{ fontSize: 36 }} role="img" aria-hidden="true">{s.icon}</span>
               <span style={{ fontSize: 15, fontWeight: 600, textAlign: 'center' }}>{s.label}</span>
-            </Tag>
+            </a>
           )
         })}
-      </div>
-
-      <div style={{ marginTop: 'auto', paddingTop: 32, textAlign: 'center' }}>
-        <a
-          href="/settings"
-          style={{
-            color: 'var(--color-text-muted)',
-            fontSize: 14,
-            textDecoration: 'none',
-            display: 'inline-block',
-            padding: '12px 24px',
-          }}
-        >
-          Settings
-        </a>
       </div>
 
       <footer style={{ textAlign: 'center', padding: '16px 0 8px', fontSize: 12, color: 'var(--color-text-muted)' }}>

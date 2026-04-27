@@ -2,8 +2,9 @@ import sys, os
 
 _APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 _HOME = os.path.expanduser("~")
-_rel_path = os.path.relpath(_APP_ROOT, _HOME)
-venv_path = os.path.join(_HOME, "virtualenv", _rel_path, "3.11", "lib", "python3.11", "site-packages")
+# Hardcoded: the venv is at ~/virtualenv/warmcare/3.11/ regardless of the app dir name.
+# Dynamic relpath would resolve to "warm.care" (with dot) and produce a nonexistent path.
+venv_path = os.path.join(_HOME, "virtualenv", "warmcare", "3.11", "lib", "python3.11", "site-packages")
 if os.path.isdir(venv_path) and venv_path not in sys.path:
     sys.path.insert(0, venv_path)
 
@@ -25,11 +26,25 @@ API_PREFIXES = ("/api/",)
 _middleware = None
 
 
+_REQUIRED_ENV = ["JWT_SECRET", "RESEND_API_KEY", "MAGIC_LINK_BASE_URL"]
+
+
+def _check_env(env_path: str) -> None:
+    missing = [k for k in _REQUIRED_ENV if not os.environ.get(k)]
+    if missing:
+        raise RuntimeError(
+            f"warm.care startup failed — missing env vars: {missing}\n"
+            f"Expected .env at: {env_path}"
+        )
+
+
 def _get_middleware():
     global _middleware
     if _middleware is None:
         from dotenv import load_dotenv
-        load_dotenv(os.path.join(_APP_ROOT, ".env"))
+        env_path = os.path.join(_APP_ROOT, ".env")
+        load_dotenv(env_path)
+        _check_env(env_path)
         from backend.app.main import app as fastapi_app
         from a2wsgi import ASGIMiddleware
         _middleware = ASGIMiddleware(fastapi_app)

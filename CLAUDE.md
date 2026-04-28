@@ -88,11 +88,11 @@ Copyright: "© 2026 Quantum Moon LLC. All rights reserved."
 
 [Security 2026-04-26] ✅ RESOLVED — CRITICAL-1: JWT in localStorage. Fixed: HttpOnly cookie auth via Google OAuth (commit 2863472).
 [Security 2026-04-26] ✅ RESOLVED — CRITICAL-2: /api/documents/synopsis auth guard. Confirmed present in production codebase (documents.py line 32).
-[Security 2026-04-27] ⚠️ HIGH — OAuth tokens (Gmail, Drive) and Monarch session token stored in plaintext SQLite. Builder: encrypt at application layer with TOKEN_ENCRYPTION_KEY env var before any new integrations ship. See NOTES.md HIGH-1.
-[Security 2026-04-27] ⚠️ HIGH — warm.db filesystem permissions on GreenGeeks unverified. Infra agent: confirm `600` permissions and that path is not web-accessible. See NOTES.md HIGH-2.
-[Security 2026-04-27] ⚠️ HIGH — Missing Content-Security-Policy header in SecurityHeadersMiddleware. Builder: add CSP to main.py before XSS-risky features (email rendering, AI output) are expanded. See NOTES.md HIGH-3.
-[Security 2026-04-27] ⚠️ MEDIUM — Any Google account can create a primary user session (open signup). Builder: gate new user creation to existing primary user email after first registration. See NOTES.md MEDIUM-4.
-[Security 2026-04-27] ⚠️ MEDIUM — GOOGLE_REDIRECT_URI (connections.py) vs GOOGLE_AUTH_REDIRECT_URI (auth.py) — two different env var names. Gmail/Drive OAuth likely broken in production. Builder: standardize to one name. See NOTES.md MEDIUM-5.
+[Security 2026-04-27] ✅ RESOLVED — HIGH-1: OAuth tokens encrypted at rest with Fernet. Commit 6730c42. Infra: needs TOKEN_ENCRYPTION_KEY in .env + cryptography pip install.
+[Security 2026-04-27] ⚠️ HIGH — HIGH-2: warm.db filesystem permissions on GreenGeeks unverified. Infra agent: confirm `600` permissions and not web-accessible. See NOTES.md Builder Security Fixes.
+[Security 2026-04-27] ✅ RESOLVED — HIGH-3: CSP header added to SecurityHeadersMiddleware. Commit 6730c42.
+[Security 2026-04-27] ✅ RESOLVED — MEDIUM-4: Primary user signup gated after first registration. Commit 6730c42.
+[Security 2026-04-27] ✅ RESOLVED — MEDIUM-5: GOOGLE_AUTH_REDIRECT_URI standardized in connections.py. Commit 6730c42.
 
 ---
 

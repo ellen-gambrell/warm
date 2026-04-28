@@ -4,6 +4,51 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## Builder: Security Fixes — 2026-04-28
+
+[Builder Agent] All code-addressable findings from the 2026-04-27 security review fixed in commit **6730c42**. Summary:
+
+| Finding | Fix | Commit |
+|---------|-----|--------|
+| MEDIUM-5: GOOGLE_REDIRECT_URI mismatch | Standardized to GOOGLE_AUTH_REDIRECT_URI in connections.py | 6730c42 |
+| HIGH-3: Missing CSP header | Added Content-Security-Policy to SecurityHeadersMiddleware | 6730c42 |
+| MEDIUM-4: Open primary user signup | After first user, reject any Google account that doesn't match existing user | 6730c42 |
+| MEDIUM-1: Prompt injection | Lightweight pattern guard in chat.py; raises 400 on injection attempts | 6730c42 |
+| MEDIUM-2: No rate limiting on /api/chat | 60 req/hr per user, in-memory, sliding window | 6730c42 |
+| HIGH-1: Plaintext token storage | Fernet encryption on all OAuth and Monarch tokens; backward-compatible decrypt | 6730c42 |
+| LOW-1: Overly permissive CORS | Restricted to specific methods and headers | 6730c42 |
+| LOW-3: SameSite=lax on cookies | Changed to SameSite=strict on wc_session and wc_supporter | 6730c42 |
+| INFO-2: No FK enforcement / no WAL | PRAGMA foreign_keys=ON + journal_mode=WAL added to get_db() | 6730c42 |
+| LOW-2: Dead schema tables | magic_link_tokens + supporter_magic_tokens removed from schema; DROP TABLE IF EXISTS migration added | 6730c42 |
+| chat.py raw exception exposure | Replaced f"Chat error: {str(e)}" with generic message | 6730c42 |
+
+### Infra still required before deploy
+
+1. **TOKEN_ENCRYPTION_KEY** — generate a Fernet key and add to GreenGeeks `.env`:
+   ```bash
+   python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   # Add to backend/.env: TOKEN_ENCRYPTION_KEY=<output>
+   ```
+   Without this, tokens remain in plaintext (code degrades gracefully with a warning log, no crash).
+
+2. **`cryptography` package** — add to virtualenv:
+   ```bash
+   source ~/virtualenv/warmcare/3.11/bin/activate
+   pip install cryptography>=42.0.0
+   touch ~/shimmerchat/tmp/restart.txt
+   ```
+
+3. **warm.db permissions** (HIGH-2 from security review) — verify on server:
+   ```bash
+   ls -la ~/MargaretAI/warm.db  # should be -rw------- (600)
+   # If not: chmod 600 ~/MargaretAI/warm.db
+   # Confirm it is NOT under public_html or document root
+   ```
+
+Note: once TOKEN_ENCRYPTION_KEY is set, existing plaintext tokens in the DB will continue to work (the decrypt function falls back to returning plaintext on Fernet decode failure). New tokens written after deploy will be encrypted. Reconnecting Gmail/Drive/Monarch will re-encrypt those tokens.
+
+---
+
 ## Security Review — 2026-04-26
 
 [Security Agent] Full adversarial review complete. 2 CRITICAL findings, 3 HIGH, 5 MEDIUM, 4 LOW, 3 INFO.

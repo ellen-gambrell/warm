@@ -20,6 +20,23 @@ See full Security Agent report for remaining HIGH/MEDIUM/LOW findings.
 
 ---
 
+## Infra Needed — 2026-04-27
+
+### Install monarchmoney library on GreenGeeks
+
+The `monarchmoney` Python package is not installed in the warm.care virtualenv. The Settings page is showing "monarchmoney library not installed on server" when Margaret tries to connect Monarch Money.
+
+```bash
+source ~/virtualenv/warmcare/3.11/bin/activate
+pip install monarchmoney
+# then restart Passenger:
+touch ~/shimmerchat/tmp/restart.txt
+```
+
+Verify: visit warm.care → Settings → Monarch Money → attempt to connect. The error should be gone.
+
+---
+
 ## Infra Needed — 2026-04-26
 
 [Builder Agent] The following server-side changes are required for Google OAuth + SMTP to work in production.

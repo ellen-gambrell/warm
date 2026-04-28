@@ -4,6 +4,20 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## Builder: Backlog Items 1–3 complete — 2026-04-28
+
+[Builder Agent] Three highest-priority "Now" backlog items built and verified (`npm run build` clean, zero TypeScript errors).
+
+| Item | What shipped |
+|------|--------------|
+| Global nav: Back + Forward | `NavContext.tsx` (stack/cursor + module-level bridge), `NavBar.tsx` (sticky, 80px, always-rendered disabled state), `App.tsx` routes all `navigate()` calls through context. Not shown on supporter portal, set-password, login, or onboarding. All redundant per-screen back buttons removed from ChatView, GifView, MoneyView, MenuView, CheckRunView, Settings, Drive. |
+| Gmail: attachment indicator | `_has_attachment()` helper + `format=full` with fields restriction on list endpoint. `hasAttachment` in list response. 📎 rendered inline with subject in `GmailView.tsx` inbox list. No full-body fetch required. |
+| Gmail: Reply / Reply All | New `POST /api/gmail/messages/{id}/reply` endpoint (MIME email, In-Reply-To/References threading, reply_all support excluding user's own address). Gmail scope updated to include `gmail.send`. Inline compose panel in `EmailViewer`: Reply + Reply All buttons, textarea, Web Speech API mic (appends to existing text), ConfirmationPanel before send, success/error feedback. |
+
+**Note for users:** Anyone with an existing Gmail connection will need to reconnect in Settings to pick up the new `gmail.send` scope.
+
+---
+
 ## Infra: Security deploy complete — 2026-04-28
 
 cryptography v47.0.0 installed ✅ | warm.db chmod 600 ✅ | neither DB web-accessible ✅ | Passenger restart ✅ | both sites healthy ✅

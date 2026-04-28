@@ -87,9 +87,10 @@ export default function ConfirmationPanel({ action, onConfirm, onCancel, busy = 
 
         {/* Action-specific detail */}
         {action.type === 'compose_email' && <EmailDetails params={action.params} />}
+        {action.type === 'send_reply'    && <ReplyDetails params={action.params} />}
 
         {/* Generic fallback */}
-        {action.type !== 'compose_email' && (
+        {action.type !== 'compose_email' && action.type !== 'send_reply' && (
           <p style={{ margin: '0 0 16px', fontSize: 17, color: 'var(--color-text)', lineHeight: 1.5 }}>
             {action.description}
           </p>
@@ -180,6 +181,39 @@ function EmailDetails({ params }: { params: Record<string, unknown> }) {
           }}
         >
           {body}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Reply detail view ──────────────────────────────────────────────────────────
+
+function ReplyDetails({ params }: { params: Record<string, unknown> }) {
+  const to      = (params.to      as string) || ''
+  const body    = (params.body    as string) || ''
+  const preview = body.length > 120 ? body.slice(0, 120).trimEnd() + '…' : body
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <DetailRow label="To" value={to} />
+      <div>
+        <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+          Message
+        </p>
+        <div
+          style={{
+            background: 'var(--color-surface)',
+            border: '2px solid var(--color-border)',
+            borderRadius: 14,
+            padding: '14px 16px',
+            fontSize: 16,
+            lineHeight: 1.6,
+            color: 'var(--color-text)',
+            whiteSpace: 'pre-wrap',
+          }}
+        >
+          {preview}
         </div>
       </div>
     </div>

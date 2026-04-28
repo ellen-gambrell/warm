@@ -137,7 +137,12 @@ def get_google_access_token(user_id: str, provider: str) -> str:
 # ── Google OAuth config ────────────────────────────────────────────────────────
 
 GOOGLE_SCOPES = {
-    "gmail": "https://www.googleapis.com/auth/gmail.readonly",
+    # gmail.send added for Reply / Reply All — existing gmail.readonly tokens
+    # will need to be reconnected in Settings to pick up the new scope.
+    "gmail": (
+        "https://www.googleapis.com/auth/gmail.readonly "
+        "https://www.googleapis.com/auth/gmail.send"
+    ),
     "drive": "https://www.googleapis.com/auth/drive.readonly",
 }
 

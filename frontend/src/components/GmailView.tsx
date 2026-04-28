@@ -1,7 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { navigate } from '../App'
+import ConfirmationPanel, { type PendingAction } from './ConfirmationPanel'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyWindow = Window & { SpeechRecognition?: any; webkitSpeechRecognition?: any }
+const hasSpeechRecognition =
+  typeof window !== 'undefined' &&
+  !!((window as AnyWindow).SpeechRecognition || (window as AnyWindow).webkitSpeechRecognition)
 
 interface GmailMessage {
   id: string
@@ -11,10 +18,12 @@ interface GmailMessage {
   date: string
   snippet: string
   unread: boolean
+  hasAttachment: boolean
 }
 
 interface GmailFullMessage extends GmailMessage {
   to: string
+  cc?: string
   body: string
 }
 
@@ -111,6 +120,117 @@ function EmailViewer({ messageId, onBack }: EmailViewerProps) {
   const [synopsisError, setSynopsisError] = useState<string | null>(null)
 
   const [showFullEmail, setShowFullEmail] = useState(false)
+
+  // ── Reply state ──────────────────────────────────────────────────────────────
+  const [replyMode, setReplyMode] = useState<'none' | 'reply' | 'replyAll'>('none')
+  const [replyBody, setReplyBody] = useState('')
+  const [isListening, setIsListening] = useState(false)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [sendSuccess, setSendSuccess] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null)
+
+  function startListening() {
+    if (!hasSpeechRecognition) return
+    const AW = window as AnyWindow
+    const SR = AW.SpeechRecognition || AW.webkitSpeechRecognition
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rec = new (SR as any)()
+    rec.continuous = true
+    rec.interimResults = false
+    rec.lang = 'en-US'
+    rec.onresult = (e: { results: SpeechRecognitionResultList }) => {
+      const transcript = Array.from(e.results)
+        .map(r => r[0].transcript)
+        .join('')
+      setReplyBody(prev => prev ? prev + ' ' + transcript : transcript)
+    }
+    rec.onerror = () => { setIsListening(false) }
+    rec.onend  = () => { setIsListening(false) }
+    rec.start()
+    recognitionRef.current = rec
+    setIsListening(true)
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop()
+    recognitionRef.current = null
+    setIsListening(false)
+  }
+
+  function toggleListening() {
+    if (isListening) stopListening()
+    else startListening()
+  }
+
+  function openReply(mode: 'reply' | 'replyAll') {
+    setReplyMode(mode)
+    setReplyBody('')
+    setSendSuccess(false)
+    setSendError(null)
+    if (isListening) stopListening()
+  }
+
+  function cancelReply() {
+    if (isListening) stopListening()
+    setReplyMode('none')
+    setReplyBody('')
+    setSendSuccess(false)
+    setSendError(null)
+  }
+
+  function reviewAndSend() {
+    if (!message) return
+    const name = senderName(message.from)
+    const label = replyMode === 'replyAll'
+      ? `Reply All to ${name}`
+      : `Reply to ${name}`
+    const preview = replyBody.slice(0, 100).trimEnd() + (replyBody.length > 100 ? '…' : '')
+    const toAddr = replyMode === 'replyAll'
+      ? [message.from, message.to, message.cc].filter(Boolean).join(', ')
+      : message.from
+    setPendingAction({
+      type: 'send_reply',
+      label,
+      description: preview,
+      params: {
+        to: toAddr,
+        body: replyBody,
+      },
+    })
+  }
+
+  async function executeReply() {
+    if (!pendingAction) return
+    setActionBusy(true)
+    setSendError(null)
+    try {
+      const res = await fetch(`/api/gmail/messages/${messageId}/reply`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body: replyBody,
+          reply_all: replyMode === 'replyAll',
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Could not send reply')
+      }
+      setPendingAction(null)
+      setReplyMode('none')
+      setReplyBody('')
+      setSendSuccess(true)
+    } catch (e: unknown) {
+      setSendError(e instanceof Error ? e.message : 'Could not send reply')
+      setPendingAction(null)
+    } finally {
+      setActionBusy(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -333,6 +453,185 @@ function EmailViewer({ messageId, onBack }: EmailViewerProps) {
           </button>
         </>
       )}
+
+      {/* ── Reply / Reply All buttons ────────────────────────────────────────── */}
+      {message && replyMode === 'none' && (
+        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+          <button
+            onClick={() => openReply('reply')}
+            aria-label="Reply to sender"
+            style={{
+              ...BTN,
+              flex: 1,
+              background: 'var(--color-accent)',
+              color: '#fff',
+              border: 'none',
+              fontSize: 18,
+            }}
+          >
+            ↩ Reply
+          </button>
+          <button
+            onClick={() => openReply('replyAll')}
+            aria-label="Reply to all recipients"
+            style={{
+              ...BTN,
+              flex: 1,
+              background: 'var(--color-surface)',
+              color: 'var(--color-text)',
+              border: '2px solid var(--color-border)',
+              fontSize: 18,
+            }}
+          >
+            ↩ Reply All
+          </button>
+        </div>
+      )}
+
+      {/* ── Send success ─────────────────────────────────────────────────────── */}
+      {sendSuccess && (
+        <p
+          role="status"
+          aria-live="polite"
+          style={{
+            marginTop: 16,
+            padding: '14px 18px',
+            background: 'var(--color-surface)',
+            border: '2px solid var(--color-accent)',
+            borderRadius: 14,
+            fontSize: 18,
+            color: 'var(--color-accent)',
+            fontWeight: 700,
+          }}
+        >
+          ✓ Reply sent.
+        </p>
+      )}
+
+      {/* ── Send error ───────────────────────────────────────────────────────── */}
+      {sendError && (
+        <p role="alert" style={{ color: 'var(--color-danger)', fontSize: 16, marginTop: 12 }}>
+          {sendError}
+        </p>
+      )}
+
+      {/* ── Compose panel ───────────────────────────────────────────────────── */}
+      {replyMode !== 'none' && (
+        <div
+          style={{
+            marginTop: 20,
+            background: 'var(--color-surface)',
+            border: '2px solid var(--color-border)',
+            borderRadius: 20,
+            padding: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 700,
+              color: 'var(--color-text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+            }}
+          >
+            {replyMode === 'replyAll' ? 'Reply All' : 'Reply'}
+            {message && ` · To: ${senderName(message.from)}`}
+            {replyMode === 'replyAll' && message && (message.to || message.cc) ? ' + others' : ''}
+          </p>
+
+          {/* Textarea */}
+          <textarea
+            value={replyBody}
+            onChange={e => setReplyBody(e.target.value)}
+            placeholder="Type your reply here, or tap the mic to dictate…"
+            aria-label="Reply message body"
+            rows={5}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              fontFamily: 'inherit',
+              fontSize: 18,
+              lineHeight: 1.6,
+              padding: '12px 14px',
+              borderRadius: 14,
+              border: '2px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              color: 'var(--color-text)',
+              resize: 'vertical',
+              outline: 'none',
+            }}
+          />
+
+          {/* Mic button */}
+          {hasSpeechRecognition && (
+            <button
+              onClick={toggleListening}
+              aria-label={isListening ? 'Stop dictation' : 'Start voice dictation'}
+              aria-pressed={isListening}
+              style={{
+                ...BTN,
+                alignSelf: 'flex-start',
+                padding: '0 24px',
+                background: isListening ? 'var(--color-accent)' : 'var(--color-surface)',
+                color: isListening ? '#fff' : 'var(--color-text)',
+                border: isListening ? 'none' : '2px solid var(--color-border)',
+                fontSize: 18,
+              }}
+            >
+              {isListening ? '⏹ Stop dictation' : '🎤 Dictate'}
+            </button>
+          )}
+
+          {/* Action row */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={cancelReply}
+              aria-label="Cancel reply"
+              style={{
+                ...BTN,
+                flex: 1,
+                background: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                border: '2px solid var(--color-border)',
+                fontSize: 17,
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={reviewAndSend}
+              disabled={!replyBody.trim()}
+              aria-label="Review and send reply"
+              style={{
+                ...BTN,
+                flex: 2,
+                background: 'var(--color-accent)',
+                color: '#fff',
+                border: 'none',
+                fontSize: 17,
+                opacity: replyBody.trim() ? 1 : 0.4,
+              }}
+            >
+              Review &amp; Send
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirmation overlay ─────────────────────────────────────────────── */}
+      {pendingAction && (
+        <ConfirmationPanel
+          action={pendingAction}
+          onConfirm={executeReply}
+          onCancel={() => setPendingAction(null)}
+          busy={actionBusy}
+        />
+      )}
     </div>
   )
 }
@@ -501,18 +800,31 @@ export default function GmailView() {
                     {formatDate(msg.date)}
                   </span>
                 </div>
-                <span
-                  style={{
-                    fontSize: 15,
-                    fontWeight: msg.unread ? 700 : 500,
-                    color: 'var(--color-text)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {msg.subject || '(no subject)'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: msg.unread ? 700 : 500,
+                      color: 'var(--color-text)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    {msg.subject || '(no subject)'}
+                  </span>
+                  {msg.hasAttachment && (
+                    <span
+                      aria-label="Has attachment"
+                      role="img"
+                      style={{ fontSize: 15, flexShrink: 0 }}
+                    >
+                      📎
+                    </span>
+                  )}
+                </div>
                 <span
                   style={{
                     fontSize: 14,

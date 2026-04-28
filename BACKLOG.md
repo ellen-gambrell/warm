@@ -6,11 +6,11 @@ Priority order. Director owns sequencing. Builder picks highest unassigned item.
 
 ## Now — Margaret's Daily Use
 
-- [ ] **Global nav: persistent Back and Forward buttons** — Two large buttons (≥64px, full accessible tap target) pinned to the top of every screen, always present. Back goes to the previous screen in the navigation stack; Forward goes forward if available. Both are visually disabled (not hidden) when the action is unavailable — they must always occupy the same position so Margaret knows exactly where to reach. Never collapse, never hide, never move. This is the primary navigation pattern for the app. Builder: implement a global nav bar in App.tsx using `window.history` state; track a navigation stack in context so disabled state is deterministic, not inferred from the browser alone.
+- [x] **Global nav: persistent Back and Forward buttons** — ✅ 2026-04-28. NavContext + NavBar. Sticky 80px bar, always-rendered disabled state, deterministic stack/cursor. All per-screen back buttons removed.
 
-- [ ] **Gmail: Reply and Reply All with voice dictation** — On any open email, two clearly labeled buttons: "Reply" and "Reply All". Tapping either opens a compose view scoped to that thread, with voice dictation available (Web Speech API, same pattern as AI chat). Reply populates only the sender; Reply All populates all recipients. The distinction must be explicit and labeled — never ambiguous. Goes through ConfirmationPanel before sending ("Reply to [name]: [preview of message]. Send?"). Builder: this likely extends GmailView and the existing Gmail API integration; confirm the Gmail connection scopes include `gmail.send` and `gmail.compose`.
+- [x] **Gmail: Reply and Reply All with voice dictation** — ✅ 2026-04-28. Inline compose panel in EmailViewer. Web Speech API mic appends to textarea. ConfirmationPanel before send. `POST /api/gmail/messages/{id}/reply` endpoint with threading headers. Gmail scope updated to include `gmail.send` — existing users must reconnect in Settings.
 
-- [ ] **Gmail: attachment indicator on email list** — When an email in the list view has one or more attachments, show a paperclip icon (📎 or SVG equivalent) alongside the subject line. No count needed — presence or absence is sufficient. Must be visible at a glance without opening the email. Builder: the Gmail API `messages.list` response includes a `payload.parts` field; an attachment is present when any part has a `filename` and a non-zero `body.size`.
+- [x] **Gmail: attachment indicator on email list** — ✅ 2026-04-28. `_has_attachment()` recursive helper + `format=full` with fields restriction. 📎 rendered inline with subject. No full-body fetch.
 
 ---
 

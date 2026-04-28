@@ -38,12 +38,32 @@ All agents read and write here. Tag entries clearly.
    touch ~/shimmerchat/tmp/restart.txt
    ```
 
-3. **warm.db permissions** (HIGH-2 from security review) — verify on server:
+3. **warm.db — two files exist, consolidate before permissions fix** (HIGH-2 from security review):
+
+   The code resolves `DB_PATH` as two `..` steps up from `backend/app/` → **project root**.
+   The authoritative DB is therefore `~/warm.care/warm.db` (or `~/MargaretAI/warm.db` — confirm actual project path on server).
+   A second file at `~/warm.care/backend/warm.db` also exists — almost certainly a stale artifact
+   from running Python/uvicorn directly inside `backend/` during early dev.
+
+   Steps:
    ```bash
-   ls -la ~/MargaretAI/warm.db  # should be -rw------- (600)
-   # If not: chmod 600 ~/MargaretAI/warm.db
-   # Confirm it is NOT under public_html or document root
+   # 1. Confirm which file Passenger is actually writing to (check modification time)
+   ls -lah ~/warm.care/warm.db ~/warm.care/backend/warm.db
+
+   # 2. Inspect the stale file — if it has real data, merge before deleting
+   sqlite3 ~/warm.care/backend/warm.db "SELECT COUNT(*) FROM users;"
+   sqlite3 ~/warm.care/backend/warm.db ".tables"
+
+   # 3. If backend/warm.db is empty or contains only dev/test rows — delete it
+   rm ~/warm.care/backend/warm.db
+
+   # 4. Lock down the real DB
+   chmod 600 ~/warm.care/warm.db
+   ls -la ~/warm.care/warm.db  # confirm -rw-------
    ```
+
+   Also confirm `~/warm.care/warm.db` is NOT under the public_html or Passenger document root.
+   It should be at the project root, one level above `backend/`, which should not be web-accessible.
 
 Note: once TOKEN_ENCRYPTION_KEY is set, existing plaintext tokens in the DB will continue to work (the decrypt function falls back to returning plaintext on Fernet decode failure). New tokens written after deploy will be encrypted. Reconnecting Gmail/Drive/Monarch will re-encrypt those tokens.
 

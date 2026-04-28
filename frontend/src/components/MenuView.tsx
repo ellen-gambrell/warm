@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from 'react'
-import { navigate } from '../App'
 
 interface MenuItem {
   id: string
@@ -63,24 +62,7 @@ export default function MenuView() {
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Go back"
-          style={{
-            minHeight: 64,
-            minWidth: 64,
-            borderRadius: 16,
-            border: 'none',
-            background: 'var(--color-surface)',
-            color: 'var(--color-text)',
-            fontSize: 24,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-          }}
-        >
-          ←
-        </button>
+      <div style={{ marginBottom: 28 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--color-text)', lineHeight: 1.1 }}>
             🍽️ Today's Menu

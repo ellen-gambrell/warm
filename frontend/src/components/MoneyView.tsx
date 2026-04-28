@@ -82,15 +82,8 @@ export default function MoneyView() {
       }}
     >
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Go back"
-          style={{ ...BTN, minWidth: 64, background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 24 }}
-        >
-          ←
-        </button>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--color-text)', flex: 1 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--color-text)' }}>
           Venmo
         </h1>
       </div>

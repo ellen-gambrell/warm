@@ -182,25 +182,7 @@ export default function Drive() {
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-        <button
-          onClick={() => window.history.back()}
-          aria-label="Back to home"
-          style={{
-            minHeight: 64,
-            minWidth: 64,
-            background: 'var(--color-surface)',
-            border: '2px solid var(--color-border)',
-            borderRadius: 16,
-            color: 'var(--color-text)',
-            fontSize: 24,
-            fontWeight: 700,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-          }}
-        >
-          ←
-        </button>
+      <div style={{ marginBottom: 32 }}>
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: 'var(--color-text)' }}>
           Documents
         </h1>

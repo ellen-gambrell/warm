@@ -7,7 +7,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { navigate } from '../App'
 
 // ── API types ──────────────────────────────────────────────────────────────────
 
@@ -298,15 +297,6 @@ export default function CheckRunView() {
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Back to home"
-          style={{
-            minHeight: 64, minWidth: 64, borderRadius: 16, border: 'none',
-            background: 'var(--color-surface)', color: 'var(--color-text)',
-            fontSize: 24, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >←</button>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--color-text)', flex: 1 }}>
           Check Run
         </h1>

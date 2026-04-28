@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ProfileProvider, useProfile } from './context/ProfileContext'
 import { SupporterAuthProvider, useSupporterAuth } from './context/SupporterAuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { NavProvider, _navPush } from './context/NavContext'
 import Login from './components/Login'
 import Onboarding from './components/Onboarding'
 import Home from './components/Home'
@@ -17,11 +18,16 @@ import CheckRunView from './components/CheckRunView'
 import SupporterLogin, { SupporterAcceptInvite } from './components/SupporterLogin'
 import SupporterDashboard from './components/SupporterDashboard'
 import MenuView from './components/MenuView'
+import NavBar from './components/NavBar'
 
-/** SPA navigation without a full page reload. */
+/**
+ * SPA navigation — pushes to browser history AND updates the NavContext stack
+ * so Back/Forward buttons have deterministic disabled state.
+ */
 export function navigate(path: string) {
   window.history.pushState(null, '', path)
   window.dispatchEvent(new PopStateEvent('popstate'))
+  _navPush(path) // updates NavContext stack (no-op if context not mounted)
 }
 
 // ── Supporter portal shell ────────────────────────────────────────────────────
@@ -29,7 +35,6 @@ export function navigate(path: string) {
 function SupporterShell({ path, search }: { path: string; search: string }) {
   const { supporter, isLoading } = useSupporterAuth()
 
-  // Invite acceptance
   if (path === '/supporter/accept') {
     const token = new URLSearchParams(search).get('token') ?? ''
     return <SupporterAcceptInvite token={token} />
@@ -57,7 +62,7 @@ function AppShell() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  // ── Supporter portal: /supporter/* routes bypass Margaret's auth entirely ──
+  // ── Supporter portal: /supporter/* routes bypass Margaret's auth and NavBar ──
   if (path.startsWith('/supporter')) {
     return (
       <SupporterAuthProvider>
@@ -66,7 +71,7 @@ function AppShell() {
     )
   }
 
-  // Set-password works from an email link — no auth required
+  // Set-password works from an email link — no auth required, no NavBar
   if (path === '/settings/set-password') {
     const token = new URLSearchParams(search).get('token') ?? ''
     return <SetPassword token={token} />
@@ -76,15 +81,24 @@ function AppShell() {
   if (!user) return <Login />
   if (!isOnboarded) return <Onboarding />
 
-  if (path === '/menu')       return <MenuView />
-  if (path === '/chat')       return <ChatView />
-  if (path === '/gif')        return <GifView />
-  if (path === '/money')      return <MoneyView />
-  if (path === '/drive')      return <Drive />
-  if (path === '/gmail')      return <GmailView />
-  if (path === '/settings')   return <Settings />
-  if (path === '/check-run')  return <CheckRunView />
-  return <Home />
+  // ── Authenticated screens — NavBar always rendered above the view ──
+  let view: React.ReactNode
+  if (path === '/menu')       view = <MenuView />
+  else if (path === '/chat')  view = <ChatView />
+  else if (path === '/gif')   view = <GifView />
+  else if (path === '/money') view = <MoneyView />
+  else if (path === '/drive') view = <Drive />
+  else if (path === '/gmail') view = <GmailView />
+  else if (path === '/settings')  view = <Settings />
+  else if (path === '/check-run') view = <CheckRunView />
+  else view = <Home />
+
+  return (
+    <>
+      <NavBar />
+      {view}
+    </>
+  )
 }
 
 export default function App() {
@@ -92,7 +106,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <ProfileProvider>
-          <AppShell />
+          <NavProvider>
+            <AppShell />
+          </NavProvider>
         </ProfileProvider>
       </AuthProvider>
     </ThemeProvider>

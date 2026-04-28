@@ -401,21 +401,7 @@ export default function GmailView() {
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-        <button
-          onClick={() => window.history.back()}
-          aria-label="Back to home"
-          style={{
-            ...BTN,
-            minWidth: 64,
-            background: 'var(--color-surface)',
-            color: 'var(--color-text)',
-            fontSize: 24,
-            border: '2px solid var(--color-border)',
-          }}
-        >
-          ←
-        </button>
+      <div style={{ marginBottom: 32 }}>
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: 'var(--color-text)' }}>
           Gmail
         </h1>

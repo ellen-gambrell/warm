@@ -11,7 +11,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { navigate } from '../App'
 
 // ── Supporter management types ─────────────────────────────────────────────────
 
@@ -478,14 +477,7 @@ export default function Settings() {
       }}
     >
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Go back"
-          style={{ ...BTN, background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 24, minWidth: 64 }}
-        >
-          ←
-        </button>
+      <div style={{ marginBottom: 28 }}>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--color-text)' }}>
           Settings
         </h1>

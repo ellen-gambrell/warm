@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { navigate } from '../App'
 import ConfirmationPanel, { type PendingAction } from './ConfirmationPanel'
+import { NAVBAR_HEIGHT } from './NavBar'
 
 // ── Typing indicator ───────────────────────────────────────────────────────────
 
@@ -344,7 +344,7 @@ export default function ChatView() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100dvh',
+        height: `calc(100dvh - ${NAVBAR_HEIGHT}px)`,
         background: 'var(--color-bg)',
         maxWidth: 640,
         margin: '0 auto',
@@ -362,13 +362,6 @@ export default function ChatView() {
           flexShrink: 0,
         }}
       >
-        <button
-          onClick={() => navigate('/')}
-          aria-label="Go back"
-          style={{ ...BTN, background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 24 }}
-        >
-          ←
-        </button>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, flex: 1, color: 'var(--color-text)' }}>
           Ask anything
         </h1>

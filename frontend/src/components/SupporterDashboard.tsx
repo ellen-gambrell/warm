@@ -54,7 +54,7 @@ export default function SupporterDashboard() {
                 {supporter.name}
               </h1>
               <p style={{ margin: '4px 0 0', fontSize: 16, color: 'var(--color-text-muted)' }}>
-                {supporter.role_label}
+                {supporter.role_label} for Margaret
               </p>
             </div>
             <button
@@ -140,7 +140,7 @@ export default function SupporterDashboard() {
           <div style={{ textAlign: 'center', padding: '60px 24px' }}>
             <p style={{ fontSize: 40, margin: '0 0 16px' }}>👋</p>
             <p style={{ fontSize: 20, color: 'var(--color-text-muted)' }}>
-              You're signed in as <strong>{supporter.role_label}</strong>.
+              You're signed in as <strong>{supporter.role_label} for Margaret</strong>.
             </p>
             <p style={{ fontSize: 18, color: 'var(--color-text-muted)', marginTop: 8 }}>
               More supporter features coming soon.

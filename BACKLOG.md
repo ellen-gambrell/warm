@@ -43,6 +43,12 @@ These are the highest-leverage improvements for the person actually using this a
 
 ---
 
+## Settings — Input Profile
+
+- [ ] **Input profile selector in Settings** — Add an "Input profile" section at the bottom of the Settings screen (below Account, above Sign out). Options: Stylus, Voice, Sip-and-Puff, Eye Gaze, Standard Touch. The selected profile persists and shapes the UI (touch target sizes, scan order, voice-first layout). Default for Margaret: Stylus. Placed at the bottom because it's a set-it-and-forget-it config — not a daily interaction. Builder: store the preference in localStorage and/or the users table; expose it via a context so components can adapt. Note: the UI adaptations per profile are a separate backlog item — this item is just the selector and persistence.
+
+---
+
 ## Later — Expanded Capability
 
 - [ ] **"Read back" command** — TTS reads the current screen on voice command "read page" or similar. Critical for voice-primary users.

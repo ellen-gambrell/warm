@@ -43,6 +43,72 @@ These are the highest-leverage improvements for the person actually using this a
 
 ---
 
+## Custom AI Cards (Paid Feature)
+
+Full spec. Builder pick this up as one unit.
+
+### What it is
+User-defined tiles on the Home screen. Margaret describes what she wants in plain English, picks a schedule, and warm.care uses Gemini with Google Search grounding to fulfill it on a recurring basis. Results display as tappable tiles on the Home screen.
+
+### Subscription model
+- One subscription per primary user. Covers that user + all their supporters.
+- All current and new users default to `status = active` — no payment gate yet.
+- Custom Cards is the first paid feature. A `require_paid` FastAPI dependency gates all Custom Cards routes.
+- Future billing (Stripe etc.) only needs to update `subscriptions.status` — nothing else changes.
+- **New DB table:** `subscriptions (id, user_id, status [active/inactive/trial], created_at)`. Seed all existing users as `active` on migration.
+
+### Limits (hard caps — enforced server-side)
+- Max 3 cards per primary user
+- Max schedule: daily (no more than 1 Gemini call per card per day)
+- Supporters cannot create cards — only the primary user (Margaret)
+
+### Settings: Card Management
+- New section in Settings: **My Cards** (above Input Profile, below Account)
+- **"+ Add a card"** button — opens a form:
+  - **What do you want?** — free-form text. Placeholder: *"Daily Mets scores from yesterday"*
+  - **How often?** — Daily / Weekly / Monthly / Annually
+  - **Visibility** — toggle: **Private** (only Margaret sees it) or **Supporter View** (also visible on the Supporter Dashboard)
+  - Save
+- Cards listed below with Edit and Remove
+- Tile name derived automatically by Gemini from the prompt — user does not type a title
+- If user already has 3 cards, the "+ Add a card" button is disabled with a note: "You've reached the 3-card limit."
+
+### Home screen
+- Custom cards appear in the tile grid alongside fixed tiles
+- Each card shows its derived short name
+- Tapping opens a full-screen plain text view of the latest result
+- Timestamp shown: *"Updated yesterday at 8:00 AM"*
+- If never run: *"First update pending"*
+
+### Supporter Dashboard
+- Cards with `visibility = supporter_view` appear as read-only tiles on the Supporter Dashboard
+- Supporters cannot edit, delete, or trigger cards — view only
+- Purpose: troubleshooting. If Margaret's Mets card is broken, a supporter can see what it's showing.
+
+### Card detail view
+- Large plain text result
+- Timestamp
+- **"Refresh now"** button — triggers an immediate Gemini call outside the schedule (counts toward the daily limit — if already run today, button is disabled with "Already updated today")
+- Back button (per global nav backlog item)
+
+### Backend: Scheduled execution
+- New DB table: `custom_cards (id, user_id, prompt, tile_name, schedule, visibility [private/supporter_view], last_result, last_run_at, next_run_at, created_at)`
+- Single daily cron job iterates all cards where `next_run_at <= now`, calls Gemini with Google Search grounding, stores result, updates `last_run_at` and `next_run_at`
+- Gemini system wrapper: *"Answer this request concisely in plain text suitable for someone with a physical disability. Today's date is [date]. Be direct and brief."*
+- Tile name generated once at card creation: separate Gemini call — *"Give a 2-3 word title for this feature: [prompt]"*
+- **Infra:** Cron job must be set up in GreenGeeks cPanel. Builder writes the infra prompt when code is ready.
+
+### Gemini cost at scale
+- 10 users × 3 cards × 30 days = 900 calls/month
+- ~$31.50/month grounding + ~$0.25 tokens = **~$32/month ceiling at 10 fully active users**
+- At current user count: negligible
+
+### Edit / Delete
+- Edit: updates prompt, schedule, or visibility. Re-derives tile name if prompt changes.
+- Delete: removes tile from Home (and Supporter Dashboard if applicable) immediately.
+
+---
+
 ## Settings — Input Profile
 
 - [ ] **Input profile selector in Settings** — Add an "Input profile" section at the bottom of the Settings screen (below Account, above Sign out). Options: Stylus, Voice, Sip-and-Puff, Eye Gaze, Standard Touch. The selected profile persists and shapes the UI (touch target sizes, scan order, voice-first layout). Default for Margaret: Stylus. Placed at the bottom because it's a set-it-and-forget-it config — not a daily interaction. Builder: store the preference in localStorage and/or the users table; expose it via a context so components can adapt. Note: the UI adaptations per profile are a separate backlog item — this item is just the selector and persistence.

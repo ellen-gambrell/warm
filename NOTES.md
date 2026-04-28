@@ -85,6 +85,38 @@ pip install -r backend/requirements.txt
 
 ---
 
+## Security: encryption at rest review — 2026-04-28
+
+[Director] Founder has asked about end-to-end encryption. True E2EE is not feasible (server-side AI requires plaintext access). However, encryption at rest has not been reviewed.
+
+Security Agent: please audit and report on:
+1. What sensitive data is stored in `warm.db` (SQLite on GreenGeeks shared hosting)?
+   - OAuth tokens: Gmail, Google Drive, Google connections
+   - Monarch Money session token
+   - Future: Custom AI Card results (may include financial/personal data)
+   - Passwords (bcrypt — already hashed, low risk)
+2. Is the SQLite file encrypted at rest? What are the options on GreenGeeks shared hosting?
+3. Should OAuth tokens and Monarch tokens be encrypted at the application layer before DB storage? What key management approach is feasible on shared hosting?
+4. Is there a risk from other tenants on the same shared host accessing warm.db?
+5. What is the threat model for data at rest given this user population (people in care settings, shared devices)?
+
+This review should produce specific recommendations for Builder, not just findings.
+
+---
+
+## Builder: dynamic primary user name — 2026-04-28
+
+The supporter portal currently hardcodes "Margaret" in role labels (e.g. "Family for Margaret"). This needs to be dynamic — other primary users are now onboarding and the name must reflect whoever the supporter is supporting.
+
+Fix required:
+- Add `GET /api/profile/primary` endpoint (no auth required from supporter cookie — supporter already has a valid session tied to one primary user). Returns `{ name: string }` for the primary user of this warm.care instance.
+- In `SupporterDashboard.tsx`, fetch this on mount and replace the hardcoded "Margaret" with the returned name.
+- Also check `SupporterLogin.tsx` and anywhere else "Margaret" appears as a hardcoded name in supporter-facing UI.
+
+Note: warm.care is still a single-primary-user-per-instance app. There is exactly one primary user per deployment. This endpoint just returns that user's name from the `users` table.
+
+---
+
 ## Director: copy/UX fix — 2026-04-27
 
 Supporter portal role display is missing context. Currently shows:

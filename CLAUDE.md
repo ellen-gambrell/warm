@@ -32,11 +32,28 @@ Domain/naming: project_domain_naming.md
 
 ## Current Project State
 
-Stage: Pre-build — foundation decisions pending
-Domain: TBD — check project_domain_naming.md; recommend myreach.ai or reachably.ai
-Stack: DECISION NEEDED — React PWA vs React Native/Expo (see Open Questions)
-Deployment: DECISION NEEDED — Vercel or Netlify
-Hosting: Founder purchasing domain on Porkbun
+Stage: Live — active development
+Domain: warm.care (live)
+Stack: React PWA (TypeScript + Vite) + FastAPI (Python 3.11) + SQLite + GreenGeeks shared hosting
+Auth: Google OAuth (HttpOnly cookie) — code complete, infra deploy pending
+Last meaningful work: Google OAuth + SMTP migration, security CRITICALs resolved (2026-04-27)
+
+### What's Built and Live
+- Home screen (2-column tile grid, 64px targets)
+- AI Chat (voice input via Web Speech API, TTS, ConfirmationPanel)
+- Gmail read view
+- Google Drive browse view
+- GIF finder (Giphy)
+- MoneyView (Venmo)
+- Check Run
+- Today's Menu (read-only)
+- Supporter Portal (invite flow, role-based dashboard, menu editor)
+- Settings (connections, 4-theme picker, supporter management, password)
+- Sign out button (Home + Settings)
+- 4-theme system (warm dark, warm light, adaptive, high contrast)
+
+### Pending Infra (before Google OAuth goes live)
+See NOTES.md "Infra Needed — 2026-04-26"
 
 ---
 
@@ -76,8 +93,9 @@ Copyright: "© 2026 Quantum Moon LLC. All rights reserved."
 
 ## Open Questions / Decisions Needed
 
-- [ ] **Tech stack:** React PWA vs React Native/Expo — PWA is simpler (no app store), Expo enables better native AT integration (iOS Voice Control, Switch Control APIs)
-- [ ] **Domain:** Purchase on Porkbun — myreach.ai → getreach.ai → reachably.ai → voxable.com (in priority order)
-- [ ] **Voice accuracy:** Voiceitt SDK for atypical speech — evaluate cost/benefit for V1
-- [ ] **Input profiles for V1:** Which access profiles ship in V1 vs later? (Recommend: Stylus + Voice for V1, Sip-and-Puff + Eye Gaze in V2)
-- [ ] **Margaret's iOS setup:** Does she have iOS Voice Control enabled? Has she configured AssistiveTouch? What's her current iPhone model?
+- [ ] **Google OAuth infra deploy** — see NOTES.md "Infra Needed — 2026-04-26". Must happen before login works in production.
+- [ ] **What is Margaret actually using?** — Which features does she use daily? What's broken or frustrating for her right now?
+- [ ] **Supporter invitations** — Has Margaret invited anyone yet? Are her key contacts set up?
+- [ ] **Font / text size** — Default sizes may be too small for Margaret's use case. Needs validation.
+- [ ] **AT testing pass** — No component has been tested with iOS Voice Control "show names" or Switch Control simulation yet.
+- [ ] **Pressure relief / medication reminders** — Safety-critical for SCI. Is this something Margaret needs now?

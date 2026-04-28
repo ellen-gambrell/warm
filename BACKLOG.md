@@ -1,68 +1,75 @@
-# BACKLOG.md — MargaretAI
+# BACKLOG.md — warm.care
 
 Priority order. Director owns sequencing. Builder picks highest unassigned item.
 
 ---
 
-## Phase 0 — Foundation Decisions (Pre-Build)
+## Immediate — Blocking Production
 
-- [ ] **Founder: choose tech stack** — React PWA vs React Native/Expo. Decision gates all Phase 1 work.
-- [ ] **Founder: purchase domain** — Porkbun, priority order: myreach.ai → getreach.ai → reachably.ai → voxable.com
-- [ ] **Founder: confirm Margaret's iPhone model and iOS version** — gates Voice Control and Eye Tracking feature planning
+- [ ] **Infra: deploy Google OAuth** — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI in Google Cloud Console + .env + Passenger restart. See NOTES.md "Infra Needed — 2026-04-26". Login does not work in production until this is done.
 
 ---
 
-## Phase 1 — Core Shell (V1, Margaret's Profile)
+## Now — Margaret's Daily Use
 
-- [ ] Input profile setup screen — "How do you use your device?" with 5 profile options; stylus + voice selected by default for Margaret
-- [ ] Home screen with large-tile navigation — Gmail, Drive, Monarch Money, GIF Finder, Games, Chat
-- [ ] AI chat interface — voice input (Web Speech API), TTS output, large text display
-- [ ] ConfirmationPanel — plain-language synopsis + confirm/cancel for every AI action
-- [ ] Profile persistence and update — user can change their input profile at any time
+These are the highest-leverage improvements for the person actually using this app today.
 
-## Phase 1 — Integrations (V1)
+- [ ] **Font size control** — Margaret uses a stylus; she reads from a phone. Default text sizes have not been validated with her. Add a font size setting (small / medium / large / x-large) that persists and applies globally. Do not bury in Settings — surface it prominently.
+- [ ] **Voice input: does it work for Margaret?** — Web Speech API accuracy on iOS Safari needs validation. If it's unreliable, it's her primary input degraded. Test and document. Flag to AT Specialist if issues found.
+- [ ] **Pressure relief / medication reminders** — Scheduled reminders are a safety-critical need for SCI users (repositioning every 2 hours prevents pressure injuries). Simple recurring reminder with TTS readout. No complex scheduling UI.
+- [ ] **Supporter setup** — Margaret needs to actually invite her key contacts. Validate the invite flow end-to-end: send email, receive invite, accept via Google, view in supporter dashboard. Fix anything broken.
 
-- [ ] Gmail integration — Google OAuth, read inbox, compose and send via AI + ConfirmationPanel
-- [ ] Google Drive integration — browse, open, search files via AI
-- [ ] Monarch Money integration — read accounts, transactions, budgets via MCP tool; query via AI chat
-- [ ] GIF Finder — Tenor/Giphy search, tap or voice-select GIF, share to iMessage / clipboard
+---
 
-## Phase 2 — Expanded Access Profiles
+## Soon — Polish and Reliability
 
-- [ ] Sip-and-puff / Switch Scanning profile — scan-optimized layout, row-column scan groups, minimal menu depth
-- [ ] Eye Gaze profile — dwell navigation, no animated distractors, eye-gaze-friendly dwell time config
-- [ ] Voice-only profile (C3-C4) — zero touch required, voice "confirm" / "cancel" wired everywhere
-- [ ] Voiceitt SDK integration — atypical speech support (dysarthric, breathy, low-volume)
+- [ ] **Onboarding / first-run experience** — New users land on the Home screen with no guidance. A first-run flow (2-3 screens max) should explain what warm.care is, confirm the Google account, and offer to send a test message. Plain language, no jargon, skippable.
+- [ ] **AT testing pass — Voice Control** — Run iOS Voice Control "show names" overlay on every component. Every interactive element must have a speakable label. Log findings to NOTES.md.
+- [ ] **AT testing pass — Switch Control** — Keyboard tab simulation on every component. Confirm scan order is logical and all actions are reachable within reasonable cycles.
+- [ ] **Error states** — What does a user see when Gmail is disconnected and they try to open Gmail? What when the AI call fails? Every dead end needs a clear, human message and a path forward.
+- [ ] **Offline / poor connection handling** — GreenGeeks shared hosting has latency spikes. The app should degrade gracefully, not hang silently.
 
-## Phase 2 — Polish
+---
 
-- [ ] Dark mode (default) with accessible contrast
-- [ ] Onboarding flow — first-run profile setup with clear plain-language explanations
-- [ ] Accessibility settings panel — adjust font size, contrast, dwell time, scan speed
-- [ ] "Read back" command — TTS reads current screen content on voice command
+## Later — Expanded Capability
 
-## Phase 3 — Expansion
+- [ ] **"Read back" command** — TTS reads the current screen on voice command "read page" or similar. Critical for voice-primary users.
+- [ ] **Accessibility settings panel** — Font size (if not done above), contrast preference, motion reduction. Not a checkbox — these are daily-use controls.
+- [ ] **iMessage / texting** — Margaret texts constantly. Compose and send texts via AI + ConfirmationPanel.
+- [ ] **Smart home pass-through** — Alexa/Google Home commands via AI chat. Common workaround for SCI users who already have smart home devices.
+- [ ] **Reminder / timer system (full)** — Beyond pressure relief: medications, appointments, recurring tasks. Must have TTS readout and a voice "snooze" / "done" path.
 
-- [ ] iMessage / texting integration — compose and send texts via AI
-- [ ] Wordle daily launch shortcut
-- [ ] Reminder / timer system (medication, pressure relief schedule)
-- [ ] Smart home voice pass-through (Alexa/Google Home commands via AI)
+---
+
+## Access Profile Expansion (V2)
+
+These require architecture support that must be designed in from now, even if not shipped yet.
+
+- [ ] **Sip-and-puff / Switch Scanning profile** — Scan-optimized layout. Row-column scan groups. Minimal menu depth (max 2 levels). Builder must design the current home screen to be scan-safe even before this is wired up.
+- [ ] **Voice-only profile (C3-C4)** — Zero touch required anywhere. Voice "confirm" / "cancel" on ConfirmationPanel. All nav by voice command.
+- [ ] **Eye Gaze profile** — Dwell navigation. No animated distractors near interactive elements. Dwell time configurable.
+- [ ] **Voiceitt integration** — Atypical speech support. Evaluate cost/API availability before committing.
 
 ---
 
 ## Testing
 
-- [ ] Switch Control scan simulation on every Phase 1 component
-- [ ] iOS Voice Control "show names" pass on every Phase 1 component
+- [ ] Switch Control scan simulation on every current component (none done yet)
+- [ ] iOS Voice Control "show names" pass on every current component (none done yet)
 - [ ] ConfirmationPanel: verify it cannot be bypassed or auto-executed
-- [ ] Session persistence: verify no data loss on device lock / short inactivity
+- [ ] Supporter invite flow: end-to-end with real email
+- [ ] Google OAuth: end-to-end in production after infra deploy
+- [ ] Session persistence: verify no state loss on device lock / short inactivity
 
-## Security
+---
 
-- [ ] Google OAuth token handling — storage audit
-- [ ] Monarch Money MCP invocation audit logging
-- [ ] Voice command prompt injection surface review
-- [ ] CSP, HSTS, security headers baseline
+## Security (remaining findings from 2026-04-26 review)
+
+- [ ] HIGH: Google OAuth connection token handling audit (connections.py)
+- [ ] HIGH: Monarch Money session token — confirm warm.db filesystem permissions on server
+- [ ] MEDIUM: Voice command prompt injection surface — user voice input into Gemini prompts
+- [ ] MEDIUM: Rate limiting on AI chat endpoint
+- [ ] MEDIUM: CSP header review — SecurityHeadersMiddleware baseline audit
 
 ---
 

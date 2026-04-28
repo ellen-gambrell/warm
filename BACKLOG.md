@@ -4,12 +4,6 @@ Priority order. Director owns sequencing. Builder picks highest unassigned item.
 
 ---
 
-## Immediate — Blocking Production
-
-- [ ] **Infra: deploy Google OAuth** — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI in Google Cloud Console + .env + Passenger restart. See NOTES.md "Infra Needed — 2026-04-26". Login does not work in production until this is done.
-
----
-
 ## Now — Margaret's Daily Use
 
 These are the highest-leverage improvements for the person actually using this app today.

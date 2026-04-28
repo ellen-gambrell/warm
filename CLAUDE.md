@@ -35,7 +35,7 @@ Domain/naming: project_domain_naming.md
 Stage: Live — active development
 Domain: warm.care (live)
 Stack: React PWA (TypeScript + Vite) + FastAPI (Python 3.11) + SQLite + GreenGeeks shared hosting
-Auth: Google OAuth (HttpOnly cookie) — code complete, infra deploy pending
+Auth: Google OAuth (HttpOnly cookie) — live in production
 Last meaningful work: Google OAuth + SMTP migration, security CRITICALs resolved (2026-04-27)
 
 ### What's Built and Live

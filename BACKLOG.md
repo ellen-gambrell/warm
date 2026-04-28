@@ -91,6 +91,10 @@ User-defined tiles on the Home screen. Margaret describes what she wants in plai
 - **"Refresh now"** button — triggers an immediate Gemini call outside the schedule (counts toward the daily limit — if already run today, button is disabled with "Already updated today")
 - Back button (per global nav backlog item)
 
+### Data storage policy
+- **Live service data (Gmail, Drive, GIF, Monarch live feeds) — never cached server-side.** Fetch fresh from source on every app open. Browser localStorage/sessionStorage may cache within-day repeat visits client-side only.
+- **Cron results — stored in DB.** The cron job runs independently of the user session. Results must be persisted server-side so they're available when the user opens the app hours later.
+
 ### Backend: Scheduled execution
 - New DB table: `custom_cards (id, user_id, prompt, tile_name, schedule, visibility [private/supporter_view], last_result, last_run_at, next_run_at, created_at)`
 - Single daily cron job iterates all cards where `next_run_at <= now`, calls Gemini with Google Search grounding, stores result, updates `last_run_at` and `next_run_at`

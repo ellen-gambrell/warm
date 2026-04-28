@@ -11,16 +11,12 @@ Builder Agent should pause current work and address CRITICAL-1 and CRITICAL-2 fi
 Full findings below and in the Security Agent session output.
 
 ### CRITICAL-1: JWT stored in localStorage — XSS-extractable session token
-Location: frontend/src/context/AuthContext.tsx : lines 82-90
-The JWT (which also grants access to Gmail, Drive, financial data) is persisted to localStorage under `warmcare_user_persistent`. Any XSS script can `localStorage.getItem('warmcare_user_persistent')` and extract a 30-day bearer token with full account access.
-Recommendation: Move to HttpOnly SameSite=Strict cookie (set by the backend on login; cleared on logout). The existing JWT stays unchanged — only the transport mechanism changes.
+Status: ✅ FIXED — commit 2863472. Switched to HttpOnly cookie auth (Google OAuth). JWT never touches localStorage.
 
 ### CRITICAL-2: /api/documents/synopsis has no authentication
-Location: backend/app/documents.py : line 30
-The document synopsis endpoint accepts file uploads and calls the Gemini API without requiring a JWT. Any unauthenticated request can consume Gemini API quota and potentially be used to extract information from uploaded files.
-Recommendation: Add `user: dict = Depends(get_current_user)` to `get_synopsis()`.
+Status: ✅ FIXED — `_user: dict = Depends(get_current_user)` confirmed present at line 32 of backend/app/documents.py. Auth guard was in place in the recovered production codebase.
 
-See full Security Agent report for all findings.
+See full Security Agent report for remaining HIGH/MEDIUM/LOW findings.
 
 ---
 

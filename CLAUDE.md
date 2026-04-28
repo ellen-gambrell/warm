@@ -69,8 +69,8 @@ Copyright: "© 2026 Quantum Moon LLC. All rights reserved."
 
 ## ⚠️ Flags
 
-[Security 2026-04-26] ⚠️ SECURITY CRITICAL — JWT stored in localStorage (XSS-extractable). Move to HttpOnly cookie before any additional integrations ship. Builder should pause and address first.
-[Security 2026-04-26] ⚠️ SECURITY CRITICAL — /api/documents/synopsis has no auth guard. Unauthenticated Gemini API access + potential data exposure. Add `Depends(get_current_user)` immediately.
+[Security 2026-04-26] ✅ RESOLVED — CRITICAL-1: JWT in localStorage. Fixed: HttpOnly cookie auth via Google OAuth (commit 2863472).
+[Security 2026-04-26] ✅ RESOLVED — CRITICAL-2: /api/documents/synopsis auth guard. Confirmed present in production codebase (documents.py line 32).
 
 ---
 

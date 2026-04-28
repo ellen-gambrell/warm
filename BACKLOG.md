@@ -6,6 +6,14 @@ Priority order. Director owns sequencing. Builder picks highest unassigned item.
 
 ## Now — Margaret's Daily Use
 
+- [ ] **Global nav: persistent Back and Forward buttons** — Two large buttons (≥64px, full accessible tap target) pinned to the top of every screen, always present. Back goes to the previous screen in the navigation stack; Forward goes forward if available. Both are visually disabled (not hidden) when the action is unavailable — they must always occupy the same position so Margaret knows exactly where to reach. Never collapse, never hide, never move. This is the primary navigation pattern for the app. Builder: implement a global nav bar in App.tsx using `window.history` state; track a navigation stack in context so disabled state is deterministic, not inferred from the browser alone.
+
+- [ ] **Gmail: Reply and Reply All with voice dictation** — On any open email, two clearly labeled buttons: "Reply" and "Reply All". Tapping either opens a compose view scoped to that thread, with voice dictation available (Web Speech API, same pattern as AI chat). Reply populates only the sender; Reply All populates all recipients. The distinction must be explicit and labeled — never ambiguous. Goes through ConfirmationPanel before sending ("Reply to [name]: [preview of message]. Send?"). Builder: this likely extends GmailView and the existing Gmail API integration; confirm the Gmail connection scopes include `gmail.send` and `gmail.compose`.
+
+- [ ] **Gmail: attachment indicator on email list** — When an email in the list view has one or more attachments, show a paperclip icon (📎 or SVG equivalent) alongside the subject line. No count needed — presence or absence is sufficient. Must be visible at a glance without opening the email. Builder: the Gmail API `messages.list` response includes a `payload.parts` field; an attachment is present when any part has a `filename` and a non-zero `body.size`.
+
+---
+
 These are the highest-leverage improvements for the person actually using this app today.
 
 - [ ] **Font size control** — Margaret uses a stylus; she reads from a phone. Default text sizes have not been validated with her. Add a font size setting (small / medium / large / x-large) that persists and applies globally. Do not bury in Settings — surface it prominently.

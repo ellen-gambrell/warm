@@ -88,7 +88,7 @@ Copyright: "© 2026 Quantum Moon LLC. All rights reserved."
 
 [Security 2026-04-26] ✅ RESOLVED — CRITICAL-1: JWT in localStorage. Fixed: HttpOnly cookie auth via Google OAuth (commit 2863472).
 [Security 2026-04-26] ✅ RESOLVED — CRITICAL-2: /api/documents/synopsis auth guard. Confirmed present in production codebase (documents.py line 32).
-[Security 2026-04-27] ⚠️ HIGH — HIGH-1: TOKEN_ENCRYPTION_KEY set as hex (invalid Fernet format) — encryption silently inactive. Infra: regenerate key using Fernet.generate_key(). See NOTES.md "Action required" section.
+[Security 2026-04-27] ✅ RESOLVED — HIGH-1: OAuth/Monarch tokens encrypted at rest with Fernet. Fernet key confirmed valid and active 2026-04-28.
 [Security 2026-04-27] ✅ RESOLVED — HIGH-2: warm.db chmod 600, not web-accessible, confirmed 2026-04-28.
 [Security 2026-04-27] ✅ RESOLVED — HIGH-3: CSP header added to SecurityHeadersMiddleware. Commit 6730c42.
 [Security 2026-04-27] ✅ RESOLVED — MEDIUM-4: Primary user signup gated after first registration. Commit 6730c42.

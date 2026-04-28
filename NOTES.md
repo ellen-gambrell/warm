@@ -8,27 +8,10 @@ All agents read and write here. Tag entries clearly.
 
 cryptography v47.0.0 installed ✅ | warm.db chmod 600 ✅ | neither DB web-accessible ✅ | Passenger restart ✅ | both sites healthy ✅
 
-⚠️ TOKEN_ENCRYPTION_KEY format issue — see action item below. Token encryption is NOT yet active.
+✅ TOKEN_ENCRYPTION_KEY regenerated with correct Fernet format 2026-04-28. Token encryption active.
 
-### ⚠️ Action required: regenerate TOKEN_ENCRYPTION_KEY in correct Fernet format
-
-The key was generated as a 32-byte hex string. Fernet requires URL-safe base64-encoded 32 bytes — a different format. The code catches the `ValueError` on startup and silently falls back to plaintext storage with a log warning. Tokens are currently NOT encrypted at rest.
-
-Fix (infra agent): SSH to server, replace the value in `~/warm.care/.env`:
-
-```bash
-source ~/virtualenv/warmcare/3.11/bin/activate
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# Output looks like: dGhpcyBpcyBhIHRlc3Qga2V5IGZvciBGZXJuZXQh=
-# Replace TOKEN_ENCRYPTION_KEY=<old hex value> with TOKEN_ENCRYPTION_KEY=<new output>
-# Then restart Passenger:
-touch ~/shimmerchat/tmp/restart.txt
-```
-
-The new key format starts with URL-safe base64 characters and ends with `=`. It is NOT a hex string.
-After restart, new token writes will be encrypted. Existing plaintext tokens continue to work
-(backward-compatible decrypt). Users will fully migrate to encrypted storage when they
-next reconnect Gmail, Drive, or Monarch.
+✅ Fernet key regenerated and confirmed valid 2026-04-28. Encryption active on all new token writes.
+Existing plaintext tokens migrate to encrypted storage as users reconnect Gmail, Drive, or Monarch.
 
 ---
 

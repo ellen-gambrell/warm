@@ -25,6 +25,16 @@ These are the highest-leverage improvements for the person actually using this a
 
 ---
 
+## Later — Supporter Multi-Person Support
+
+- [ ] **Supporter: switch between people they support** — A supporter (e.g. a case manager, home health aide, or family member) may support more than one person using warm.care. They should be able to see which people they support and switch between them without logging out and back in.
+
+  User story: Ellen is "Family for Margaret" on one warm.care instance and "Family for David" on another. From the supporter portal, she should see both and tap to switch.
+
+  Architectural note for Builder: warm.care is currently single-user per instance (one Margaret per deployment). Multi-person supporter switching implies either (a) cross-instance supporter identity — the supporter portal knows about multiple warm.care instances — or (b) a future shared identity layer. This needs an architecture decision before Builder touches it. Flag for Builder + Director discussion before any code is written.
+
+---
+
 ## Later — Expanded Capability
 
 - [ ] **"Read back" command** — TTS reads the current screen on voice command "read page" or similar. Critical for voice-primary users.

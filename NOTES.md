@@ -68,6 +68,28 @@ pip install -r backend/requirements.txt
 
 ---
 
+## Director: copy/UX fix — 2026-04-27
+
+Supporter portal role display is missing context. Currently shows:
+
+> warm.care supporter
+> Ellen
+> Family
+
+Should read:
+
+> warm.care supporter
+> Ellen
+> Family for Margaret
+
+The role label everywhere in the supporter portal should be `[role_label] for [primary user name]`. This applies to: the dashboard header/profile display, any place role is shown to the supporter.
+
+"Margaret" is the known primary user of this instance. Simplest correct fix: append "for Margaret" to `role_label` in the SupporterDashboard component wherever it's rendered for the supporter's own context. If the primary user name is ever dynamic, fetch it from the existing `/api/auth/status` or a new `/api/profile` endpoint — but for now, "Margaret" is correct and hardcoding it is fine.
+
+Builder: find `role_label` display in `frontend/src/components/SupporterDashboard.tsx` and update to `{role_label} for Margaret`.
+
+---
+
 ## Session Notes — 2026-04-25
 
 ### Founding session

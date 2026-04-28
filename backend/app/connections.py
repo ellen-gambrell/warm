@@ -19,6 +19,7 @@ Disconnect:
 """
 
 import json
+import logging
 import os
 import secrets
 import time
@@ -35,6 +36,61 @@ from .database import get_db
 
 router = APIRouter()
 
+_log = logging.getLogger(__name__)
+
+# ── Token encryption ───────────────────────────────────────────────────────────
+# Tokens (OAuth access/refresh, Monarch session) are encrypted with Fernet
+# symmetric encryption before storage. Set TOKEN_ENCRYPTION_KEY in .env to a
+# 32-byte URL-safe base64 key (generate with: python -c "from cryptography.fernet
+# import Fernet; print(Fernet.generate_key().decode())").
+#
+# If the env var is absent (local dev), tokens are stored plaintext with a warning.
+# Decrypt is forward-compatible: tries Fernet first, falls back to plaintext so
+# existing rows work before a migration re-encrypts them.
+
+_fernet = None
+
+def _get_fernet():
+    global _fernet
+    if _fernet is not None:
+        return _fernet
+    key = os.getenv("TOKEN_ENCRYPTION_KEY", "")
+    if not key:
+        _log.warning(
+            "TOKEN_ENCRYPTION_KEY is not set — OAuth tokens stored in plaintext. "
+            "Set this env var in production."
+        )
+        return None
+    try:
+        from cryptography.fernet import Fernet
+        _fernet = Fernet(key.encode())
+        return _fernet
+    except Exception as exc:
+        _log.error("Invalid TOKEN_ENCRYPTION_KEY: %s — tokens stored in plaintext.", exc)
+        return None
+
+
+def _encrypt(value: str | None) -> str | None:
+    if value is None:
+        return None
+    f = _get_fernet()
+    if f is None:
+        return value
+    return f.encrypt(value.encode()).decode()
+
+
+def _decrypt(value: str | None) -> str | None:
+    if value is None:
+        return None
+    f = _get_fernet()
+    if f is None:
+        return value
+    try:
+        return f.decrypt(value.encode()).decode()
+    except Exception:
+        # Value is plaintext (pre-encryption migration) — return as-is
+        return value
+
 
 # ── Token helper ───────────────────────────────────────────────────────────────
 
@@ -48,17 +104,19 @@ def get_google_access_token(user_id: str, provider: str) -> str:
     db.close()
     if not row:
         raise HTTPException(status_code=403, detail=f"{provider} not connected")
+    access_token  = _decrypt(row["access_token"])
+    refresh_token = _decrypt(row["refresh_token"])
     # Return existing token if still valid (60s buffer)
     if row["expires_at"] and int(time.time()) < row["expires_at"] - 60:
-        return row["access_token"]
+        return access_token
     # Refresh
-    if not row["refresh_token"]:
+    if not refresh_token:
         raise HTTPException(status_code=403, detail=f"{provider} token expired — please reconnect in Settings")
     cfg = _google_cfg()
     payload = urllib.parse.urlencode({
         "client_id": cfg["client_id"],
         "client_secret": cfg["client_secret"],
-        "refresh_token": row["refresh_token"],
+        "refresh_token": refresh_token,
         "grant_type": "refresh_token",
     }).encode()
     req = urllib.request.Request("https://oauth2.googleapis.com/token", data=payload, method="POST")
@@ -69,7 +127,7 @@ def get_google_access_token(user_id: str, provider: str) -> str:
     db = get_db()
     db.execute(
         "UPDATE connections SET access_token=?, expires_at=?, updated_at=datetime('now') WHERE user_id=? AND provider=?",
-        (new_token, new_expires, user_id, provider)
+        (_encrypt(new_token), new_expires, user_id, provider)
     )
     db.commit()
     db.close()
@@ -89,7 +147,7 @@ def _google_cfg():
         "client_id":     os.getenv("GOOGLE_CLIENT_ID", ""),
         "client_secret": os.getenv("GOOGLE_CLIENT_SECRET", ""),
         "redirect_uri":  os.getenv(
-            "GOOGLE_REDIRECT_URI",
+            "GOOGLE_AUTH_REDIRECT_URI",
             "http://localhost:8000/api/connections/google/callback",
         ),
         "frontend_url":  os.getenv("MAGIC_LINK_BASE_URL", "http://localhost:5173"),
@@ -211,7 +269,7 @@ def google_callback(
         """,
         (
             str(uuid.uuid4()), user_id, provider,
-            tokens.get("access_token"), tokens.get("refresh_token"),
+            _encrypt(tokens.get("access_token")), _encrypt(tokens.get("refresh_token")),
             tokens.get("scope"), expires_at,
         ),
     )
@@ -345,7 +403,7 @@ async def connect_monarch(body: MonarchBody, user: dict = Depends(get_current_us
             data         = excluded.data,
             updated_at   = datetime('now')
         """,
-        (str(uuid.uuid4()), user["sub"], session_token,
+        (str(uuid.uuid4()), user["sub"], _encrypt(session_token),
          json.dumps({"email": body.email.strip()})),
     )
     db.commit()
@@ -385,4 +443,4 @@ def get_monarch_session(user_id: str) -> str:
             status_code=403,
             detail="Monarch Money not connected — go to Settings to connect.",
         )
-    return row["access_token"]
+    return _decrypt(row["access_token"])

@@ -83,7 +83,7 @@ def _set_cookie(response: Response, token: str, cookie_name: str = COOKIE_NAME) 
         value=token,
         httponly=True,
         secure=IS_PROD,
-        samesite="lax",
+        samesite="strict",
         max_age=JWT_EXPIRY,
         path="/",
     )
@@ -239,6 +239,11 @@ def google_callback(code: str, state: str, response: Response):
         if row:
             user_id, user_name = row["id"], row["name"]
         else:
+            # Only allow a new primary user if no primary user exists yet (first-run).
+            # After first registration, warm.care is single-user — no open signup.
+            existing_count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            if existing_count > 0:
+                return RedirectResponse("/?error=auth_failed")
             user_id, user_name = str(uuid.uuid4()), name
             db.execute(
                 "INSERT INTO users (id, name, email) VALUES (?, ?, ?)",
@@ -335,7 +340,7 @@ def _handle_supporter_google(email: str, name: str, invite_token: Optional[str],
         value=token,
         httponly=True,
         secure=SUP_IS_PROD,
-        samesite="lax",
+        samesite="strict",
         max_age=SESSION_TTL,
         path="/",
     )

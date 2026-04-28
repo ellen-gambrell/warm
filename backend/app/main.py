@@ -36,12 +36,25 @@ _IS_PROD = os.environ.get("ENVIRONMENT", "").lower() in ("production", "prod")
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security response headers to every API response."""
 
+    # microphone=() is intentionally absent — Web Speech API requires it.
+    _CSP = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https://media.giphy.com https://media0.giphy.com "
+        "https://media1.giphy.com https://media2.giphy.com https://media3.giphy.com "
+        "https://media4.giphy.com; "
+        "connect-src 'self' https://generativelanguage.googleapis.com; "
+        "frame-ancestors 'none';"
+    )
+
     async def dispatch(self, request: StarletteRequest, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Permissions-Policy"] = "geolocation=(), camera=()"
+        response.headers["Content-Security-Policy"] = self._CSP
         if _IS_PROD:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
         return response
@@ -60,8 +73,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://warm.care", "http://localhost:5173"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Cookie"],
 )
 
 app.include_router(auth_router)

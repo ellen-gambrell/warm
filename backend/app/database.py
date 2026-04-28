@@ -8,6 +8,8 @@ DB_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'warm.db')
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
@@ -28,16 +30,6 @@ def init_db() -> None:
             public_key BLOB NOT NULL,
             sign_count INTEGER NOT NULL DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now'))
-        );
-
-        -- One-time sign-in tokens delivered by email
-        CREATE TABLE IF NOT EXISTS magic_link_tokens (
-            id         TEXT PRIMARY KEY,
-            email      TEXT NOT NULL,
-            token      TEXT UNIQUE NOT NULL,
-            expires_at INTEGER NOT NULL,
-            used_at    INTEGER,
-            created_at INTEGER NOT NULL
         );
 
         -- Optional bcrypt passwords per user
@@ -158,16 +150,6 @@ def init_db() -> None:
             timestamp    INTEGER NOT NULL
         );
 
-        -- One-time sign-in tokens for returning supporters (separate from Margaret's)
-        CREATE TABLE IF NOT EXISTS supporter_magic_tokens (
-            id           TEXT PRIMARY KEY,
-            supporter_id TEXT NOT NULL,
-            token        TEXT UNIQUE NOT NULL,
-            expires_at   INTEGER NOT NULL,
-            used_at      INTEGER,
-            created_at   INTEGER NOT NULL
-        );
-
         -- ── Daily menu ────────────────────────────────────────────────────
 
         CREATE TABLE IF NOT EXISTS menu_items (
@@ -185,6 +167,14 @@ def init_db() -> None:
         );
     """)
     conn.commit()
+
+    # Migration: drop dead magic-link tables (replaced by Google OAuth)
+    for dead_table in ("magic_link_tokens", "supporter_magic_tokens"):
+        try:
+            conn.execute(f"DROP TABLE IF EXISTS {dead_table}")
+            conn.commit()
+        except Exception:
+            pass
 
     # Migrate: add email column to pre-existing users tables
     try:

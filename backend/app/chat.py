@@ -15,12 +15,65 @@ PendingAction:
 """
 
 import os
+import time
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .auth import get_current_user
+
+# ── Rate limiting ──────────────────────────────────────────────────────────────
+# Simple in-memory per-user counter. Resets on process restart — intentional.
+# 60 requests per hour per user.
+
+_RATE_LIMIT   = 60
+_RATE_WINDOW  = 3600  # seconds
+_rate_buckets: dict[str, list[float]] = {}
+
+
+def _check_rate_limit(user_id: str) -> None:
+    now = time.time()
+    bucket = _rate_buckets.get(user_id, [])
+    # Drop timestamps outside the window
+    bucket = [t for t in bucket if now - t < _RATE_WINDOW]
+    if len(bucket) >= _RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail="You've sent a lot of messages in the last hour. Please wait a few minutes and try again.",
+        )
+    bucket.append(now)
+    _rate_buckets[user_id] = bucket
+
+
+# ── Prompt injection guard ─────────────────────────────────────────────────────
+# Lightweight pattern block. Not a complete defence — defence in depth only.
+
+_INJECTION_PATTERNS = [
+    "ignore previous",
+    "ignore all previous",
+    "disregard previous",
+    "you are now",
+    "pretend you",
+    "pretend to be",
+    "system:",
+    "system prompt",
+    "new instructions",
+    "forget your instructions",
+    "override instructions",
+    "act as",
+    "jailbreak",
+]
+
+
+def _check_injection(message: str) -> None:
+    lower = message.lower().strip()
+    for pattern in _INJECTION_PATTERNS:
+        if lower.startswith(pattern) or f"\n{pattern}" in lower:
+            raise HTTPException(
+                status_code=400,
+                detail="I'm not able to process that request. Try asking me something else.",
+            )
 
 chat_router = APIRouter()
 
@@ -114,6 +167,9 @@ def _build_tools(types_module):
 
 @chat_router.post("/api/chat/message")
 async def chat_message(body: ChatRequest, user: dict = Depends(get_current_user)):
+    _check_rate_limit(user["sub"])
+    _check_injection(body.message)
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured.")
@@ -205,8 +261,8 @@ async def chat_message(body: ChatRequest, user: dict = Depends(get_current_user)
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Something went wrong with your request. Please try again.")
 
 
 # ── Execute a confirmed action ─────────────────────────────────────────────────

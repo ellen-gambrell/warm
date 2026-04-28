@@ -85,7 +85,7 @@ def _set_supporter_cookie(response: Response, supporter_id: str, role: str) -> N
         value=token,
         httponly=True,
         secure=IS_PROD,
-        samesite="lax",
+        samesite="strict",
         max_age=SESSION_TTL,
         path="/",
     )

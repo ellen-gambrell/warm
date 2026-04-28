@@ -1,4 +1,5 @@
 import { useProfile } from '../context/ProfileContext'
+import { useAuth } from '../context/AuthContext'
 import { navigate } from '../App'
 
 const SHORTCUTS = [
@@ -17,6 +18,7 @@ const SHORTCUTS = [
 
 export default function Home() {
   const { profile } = useProfile()
+  const { logout } = useAuth()
   const name = profile.name || 'there'
 
   return (
@@ -82,6 +84,26 @@ export default function Home() {
           )
         })}
       </div>
+
+      <button
+        onClick={logout}
+        aria-label="Sign out"
+        style={{
+          marginTop: 16,
+          width: '100%',
+          minHeight: 64,
+          borderRadius: 16,
+          border: '2px solid var(--color-border)',
+          background: 'transparent',
+          color: 'var(--color-text-muted)',
+          fontSize: 17,
+          fontWeight: 700,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+        }}
+      >
+        Sign out
+      </button>
 
       <footer style={{ textAlign: 'center', padding: '16px 0 8px', fontSize: 12, color: 'var(--color-text-muted)' }}>
         <p style={{ margin: 0 }}>

@@ -31,11 +31,13 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          echo "${{ secrets.hetzner_deploy_ci }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p 22 shimmer.ing >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p 22 5.78.110.203 >> ~/.ssh/known_hosts 2>/dev/null
 
-      # Deploy backend + passenger_wsgi to ~/warmcare/
+      # Deploy backend via rsync
+      # .env and *.db are excluded: secrets and live database must never be overwritten by CI
+      # venv is excluded: server-side virtualenv, rsync --delete would wipe it
       - name: Deploy backend
         run: |
           rsync -avz --delete \
@@ -44,26 +46,40 @@ jobs:
             --exclude='__pycache__' \
             --exclude='.env' \
             --exclude='*.db' \
+            --exclude='*.db-shm' \
+            --exclude='*.db-wal' \
             --exclude='stderr.log' \
-            --exclude='tmp' \
+            --exclude='venv' \
+            --exclude='.venv' \
             -e "ssh -i ~/.ssh/deploy_key -p 22" \
-            ./ shimmeri@shimmer.ing:~/warmcare/
+            ./ deploy@5.78.110.203:/home/deploy/warmcare/
 
-      # Deploy built frontend to ~/public_html/warm.care/
+      # Deploy frontend to nginx webroot
       - name: Deploy frontend
         run: |
           rsync -avz --delete \
-            --exclude='.htaccess' \
             -e "ssh -i ~/.ssh/deploy_key -p 22" \
-            frontend/dist/ shimmeri@shimmer.ing:~/public_html/warm.care/
+            frontend/dist/ deploy@5.78.110.203:/var/www/warm.care/
 
-      # Install deps and restart Passenger
-      - name: Restart app
+      # Install deps and restart service
+      - name: Restart warmcare
         run: |
-          ssh -i ~/.ssh/deploy_key -p 22 shimmeri@shimmer.ing '
-            source ~/virtualenv/warmcare/3.11/bin/activate &&
-            cd ~/warmcare &&
+          ssh -i ~/.ssh/deploy_key -p 22 deploy@5.78.110.203 '
+            source /home/deploy/warmcare/venv/bin/activate &&
+            cd /home/deploy/warmcare &&
             pip install -q -r backend/requirements.txt &&
-            mkdir -p tmp &&
-            touch tmp/restart.txt
+            sudo systemctl restart warmcare
+          '
+
+      # Verify backend is healthy
+      - name: Verify health
+        run: |
+          ssh -i ~/.ssh/deploy_key -p 22 deploy@5.78.110.203 '
+            sleep 3
+            status=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8002/api/health)
+            if [ "$status" != "200" ]; then
+              echo "ERROR: warmcare health check failed (HTTP $status)"
+              exit 1
+            fi
+            echo "warmcare health OK (HTTP $status)"
           '

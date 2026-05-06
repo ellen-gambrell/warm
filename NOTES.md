@@ -2,76 +2,15 @@
 
 All agents read and write here. Tag entries clearly.
 
+> **Infrastructure note (2026-05-03):** Entries below predate the migration to Hetzner (completed 2026-05-02). All references to GreenGeeks paths, Passenger restart (`touch ~/shimmerchat/tmp/restart.txt`), cPanel virtualenvs, and `~/warm.care/` server paths are historical. Current infra: Hetzner 5.78.110.203, systemd `warmcare.service`, backend at `/home/deploy/warmcare/`, frontend at `/var/www/warm.care/`. See program/playbook.md.
+
 ---
 
-## Infra Needed — 2026-04-29 🚨 DEPLOY THIS
+## Infra Needed — 2026-04-29 ~~🚨 DEPLOY THIS~~ — COMPLETED 2026-05-02
 
-[Builder Agent] `origin/main` is now fully up to date — 20 commits pushed, zero TypeScript errors. This is a full deploy of everything built since 2026-04-25. The server is currently running the WebAuthn-era scaffold only. This deploy brings production current.
+> **Note:** This deploy was executed during the Hetzner migration. Steps below reference GreenGeeks/Passenger paths that no longer apply. Current deploy: `ssh hetzner 'cd /home/deploy/warmcare && git pull && source venv/bin/activate && pip install -r backend/requirements.txt && sudo systemctl restart warmcare'`. Frontend: build locally, rsync to `/var/www/warm.care/`.
 
-### What's being deployed
-- Full recovered production codebase (Chat, Gmail, Drive, GIF, Venmo/MoneyView, Check Run, Today's Menu, Supporter Portal, Settings, 4-theme system)
-- Google OAuth login + SMTP (magic link)
-- All security fixes: CSP header, Fernet token encryption, rate limiting, prompt injection guard, signup gating, SameSite=strict cookies, FK enforcement, WAL mode, CORS hardening
-- Global nav bar (Back/Forward)
-- Gmail attachment indicator (📎)
-- Gmail Reply / Reply All with voice dictation
-
-### Deploy steps
-
-```bash
-# 1. Pull the new code
-cd ~/warm.care   # confirm actual project path
-git pull
-
-# 2. Install new Python packages (several are new since last deploy)
-source ~/virtualenv/warmcare/3.11/bin/activate
-pip install -r backend/requirements.txt
-
-# 3. Build the frontend
-cd frontend
-npm install
-npm run build
-cd ..
-
-# 4. Restart Passenger
-touch ~/shimmerchat/tmp/restart.txt
-```
-
-### New packages being added (pip)
-- `google-genai>=1.0.0` — Gemini AI (Chat, Gmail synopsis)
-- `bcrypt>=4.0.0` — password hashing
-- `python-multipart>=0.0.9` — form handling
-- `monarchmoney>=0.1.15` — Monarch Money integration
-- `cryptography>=42.0.0` — Fernet token encryption at rest
-
-Note: `webauthn==2.2.0` has been REMOVED from requirements.txt (Face ID login replaced by Google OAuth).
-
-### Post-deploy: env vars required on server
-These must be in `~/warm.care/backend/.env`. Confirm all are present:
-```
-JWT_SECRET=<strong random string>
-GOOGLE_CLIENT_ID=<from Google Cloud Console>
-GOOGLE_CLIENT_SECRET=<from Google Cloud Console>
-GOOGLE_AUTH_REDIRECT_URI=https://warm.care/api/auth/google/callback
-GEMINI_API_KEY=<Gemini API key>
-TOKEN_ENCRYPTION_KEY=<Fernet key — generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
-SMTP_HOST=chi210.greengeeks.net
-SMTP_PORT=465
-SMTP_USER=noreply@warm.care
-SMTP_PASS=<password>
-SMTP_FROM=noreply@warm.care
-MAGIC_LINK_BASE_URL=https://warm.care
-```
-
-### Post-deploy: Gmail reconnect required
-Anyone with an existing Gmail connection must go to **Settings → Gmail → Disconnect → Reconnect** to pick up the new `gmail.send` scope needed for Reply/Reply All.
-
-### Verify after deploy
-- https://warm.care loads and shows Google sign-in
-- Sign in with Google works, lands on Home screen
-- AI Chat responds
-- Gmail inbox loads (after connecting in Settings)
-- Settings page shows all connection options
+[Builder Agent] `origin/main` is now fully up to date — 20 commits pushed, zero TypeScript errors. Deployed to Hetzner 2026-05-02.
 
 ---
 

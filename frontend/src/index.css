@@ -96,6 +96,42 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   FONT SIZE SCALE — controlled via data-font-size attribute on <html>
+   Applied by ProfileContext when profile.fontSize changes.
+   Components reference these vars in inline styles: fontSize: 'var(--fs-md)'
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* normal: compact, information-dense */
+:root {
+  --fs-sm:   14px;  /* captions, timestamps, fine print */
+  --fs-base: 16px;  /* secondary text, descriptions */
+  --fs-md:   18px;  /* primary body, buttons */
+  --fs-lg:   20px;  /* UI labels, tile labels */
+  --fs-xl:   24px;  /* subheadings */
+  --fs-2xl:  30px;  /* page headings */
+}
+
+/* large (default): optimized for stylus / limited-touch use */
+[data-font-size="large"] {
+  --fs-sm:   16px;
+  --fs-base: 18px;
+  --fs-md:   20px;
+  --fs-lg:   23px;
+  --fs-xl:   27px;
+  --fs-2xl:  34px;
+}
+
+/* xlarge: maximum readability */
+[data-font-size="xlarge"] {
+  --fs-sm:   18px;
+  --fs-base: 20px;
+  --fs-md:   23px;
+  --fs-lg:   26px;
+  --fs-xl:   31px;
+  --fs-2xl:  38px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    BASE STYLES
    ───────────────────────────────────────────────────────────────────────────── */
 
@@ -113,7 +149,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  font-size: 18px;
+  font-size: var(--fs-md);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;

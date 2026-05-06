@@ -132,6 +132,15 @@ def auth_status():
     return {"registered": count > 0}
 
 
+@router.get("/primary")
+def get_primary_profile():
+    """Returns the primary user's display name — used by the supporter portal."""
+    db = get_db()
+    row = db.execute("SELECT name FROM users LIMIT 1").fetchone()
+    db.close()
+    return {"name": row["name"] if row else "Margaret"}
+
+
 # ── Current user ─────────────────────────────────────────────────────────────
 
 @router.get("/me")

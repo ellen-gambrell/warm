@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useProfile } from '../context/ProfileContext'
 
 // ── Supporter management types ─────────────────────────────────────────────────
 
@@ -22,6 +23,14 @@ interface SupporterAccount {
   role_label: string
   revoked: boolean
   last_active_at: number | null
+}
+
+interface PendingInvite {
+  id: string
+  email: string
+  role: string
+  role_label: string
+  expires_at: number
 }
 
 const SUPPORTER_ROLES = [
@@ -189,6 +198,7 @@ function ServiceCard({
 export default function Settings() {
   const { user, logout } = useAuth()
   const { themeId, themes, setTheme } = useTheme()
+  const { profile, setProfile } = useProfile()
   const [status, setStatus]   = useState<ConnectionStatus | null>(null)
   const [busy, setBusy]       = useState<Record<string, boolean>>({})
   const [notice, setNotice]   = useState<{ msg: string; ok: boolean } | null>(null)
@@ -212,6 +222,7 @@ export default function Settings() {
 
   // Supporter management
   const [supporters, setSupporters] = useState<SupporterAccount[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [supportersLoading, setSupportersLoading] = useState(true)
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -273,7 +284,10 @@ export default function Settings() {
   const fetchSupporters = useCallback(() => {
     fetch('/api/margaret/supporters', { ...FETCH_OPTS })
       .then(r => r.json())
-      .then(d => setSupporters(d.supporters ?? []))
+      .then(d => {
+        setSupporters(d.supporters ?? [])
+        setPendingInvites(d.pending_invites ?? [])
+      })
       .catch(() => {})
       .finally(() => setSupportersLoading(false))
   }, [])
@@ -314,6 +328,16 @@ export default function Settings() {
       fetchSupporters()
     } catch {
       showNotice('Could not remove access. Try again.', false)
+    }
+  }
+
+  async function cancelInvite(id: string, email: string) {
+    if (!window.confirm(`Cancel the invite to ${email}?`)) return
+    try {
+      await fetch(`/api/margaret/supporters/invites/${id}`, { method: 'DELETE', ...FETCH_OPTS })
+      fetchSupporters()
+    } catch {
+      showNotice('Could not cancel invite. Try again.', false)
     }
   }
 
@@ -817,6 +841,55 @@ export default function Settings() {
         })}
       </div>
 
+      {/* ── Font size ── */}
+      <h3 style={{ margin: '24px 0 12px', fontSize: 15, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        Text size
+      </h3>
+      <div
+        role="radiogroup"
+        aria-label="Text size"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 32 }}
+      >
+        {([
+          { id: 'normal',  label: 'Standard', preview: 18 },
+          { id: 'large',   label: 'Large',    preview: 22 },
+          { id: 'xlarge',  label: 'X-Large',  preview: 28 },
+        ] as const).map(opt => {
+          const active = profile.fontSize === opt.id
+          return (
+            <button
+              key={opt.id}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setProfile({ ...profile, fontSize: opt.id })}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                padding: '14px 10px',
+                borderRadius: 18,
+                border: active ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
+                background: active ? 'var(--color-surface-raised)' : 'var(--color-surface)',
+                cursor: 'pointer',
+                minHeight: 'auto',
+                fontFamily: 'inherit',
+              }}
+            >
+              <span style={{ fontSize: opt.preview, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1 }}>
+                Aa
+              </span>
+              <span style={{ fontSize: 13, color: active ? 'var(--color-accent)' : 'var(--color-text-muted)', fontWeight: active ? 700 : 400 }}>
+                {opt.label}
+              </span>
+              {active && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-accent)' }}>✓ Active</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       {/* ── Section: Supporters ── */}
       <h2 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         Supporters
@@ -890,12 +963,36 @@ export default function Settings() {
           </button>
         )}
 
+        {/* Pending invites */}
+        {pendingInvites.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Pending ({pendingInvites.length})
+            </p>
+            {pendingInvites.map(inv => (
+              <div key={inv.id} style={{ background: 'var(--color-surface)', borderRadius: 14, border: '2px dashed var(--color-border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, minHeight: 64 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--color-text)' }}>{inv.email}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>{inv.role_label} · Invite pending</p>
+                </div>
+                <button
+                  onClick={() => cancelInvite(inv.id, inv.email)}
+                  aria-label={`Cancel invite to ${inv.email}`}
+                  style={{ ...BTN, minHeight: 44, fontSize: 13, background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Supporter list */}
         {supportersLoading ? (
           <p style={{ margin: 0, fontSize: 16, color: 'var(--color-text-muted)' }}>Loading…</p>
-        ) : supporters.filter(s => !s.revoked).length === 0 ? (
+        ) : supporters.filter(s => !s.revoked).length === 0 && pendingInvites.length === 0 ? (
           <p style={{ margin: 0, fontSize: 16, color: 'var(--color-text-muted)' }}>No supporters yet. Add someone above.</p>
-        ) : (
+        ) : supporters.filter(s => !s.revoked).length === 0 ? null : (
           supporters.filter(s => !s.revoked).map(s => (
             <div key={s.id} style={{ background: 'var(--color-surface)', borderRadius: 16, border: '2px solid var(--color-border)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, minHeight: 72 }}>
               <div style={{ flex: 1, minWidth: 0 }}>

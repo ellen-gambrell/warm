@@ -19,7 +19,7 @@ These are the highest-leverage improvements for the person actually using this a
 - [x] **Font size control** — ✅ 2026-05-06. Standard / Large (default) / X-Large picker in Settings → Appearance. CSS vars applied globally via `data-font-size` on `<html>`. Home screen heading + tile labels scale with preference.
 - [ ] **Voice input: does it work for Margaret?** — Web Speech API is wired in Chat and Gmail. **Needs real-device validation with Margaret on iOS Safari.** Checklist in NOTES.md 2026-05-06. Flag to AT Specialist if accuracy is poor.
 - [x] **Pressure relief / medication reminders** — ✅ 2026-05-06. ⏰ tile on Home (3rd position). `/reminders` view with add/pause/resume/delete. Backend CRUD + DB table. ReminderContext runs global timers across all views. On fire: TTS + dismissable banner. Auto-dismiss after 60s.
-- [ ] **Supporter setup** — Code reviewed and complete. **Needs end-to-end test with a real invite.** Checklist in NOTES.md 2026-05-06.
+- [x] **Supporter setup** — ✅ 2026-05-06. Pending invites now visible in Settings with Cancel button. Duplicate invite guard (re-inviting same email replaces old link). Primary user name is dynamic in the supporter dashboard (fetched from `/api/auth/primary`). **Remaining: end-to-end test with a real invite — checklist in NOTES.md.**
 
 ---
 

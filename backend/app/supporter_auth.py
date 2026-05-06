@@ -319,11 +319,17 @@ from .auth import get_current_user  # noqa: E402  (avoids circular at top)
 
 @router.get("/api/margaret/supporters")
 def margaret_list_supporters(_user: dict = Depends(get_current_user)):
-    """Margaret views all supporters."""
+    """Margaret views all supporters and pending invites."""
     db = get_db()
+    now = int(time.time())
     rows = db.execute(
         "SELECT id, name, email, role, expires_at, created_at, last_active_at, revoked_at "
         "FROM supporter_accounts ORDER BY created_at ASC"
+    ).fetchall()
+    invite_rows = db.execute(
+        "SELECT id, email, role, expires_at, created_at FROM supporter_invites "
+        "WHERE accepted_at IS NULL AND expires_at > ? ORDER BY created_at ASC",
+        (now,),
     ).fetchall()
     db.close()
     return {
@@ -340,8 +346,35 @@ def margaret_list_supporters(_user: dict = Depends(get_current_user)):
                 "revoked": bool(r["revoked_at"]),
             }
             for r in rows
-        ]
+        ],
+        "pending_invites": [
+            {
+                "id": r["id"],
+                "email": r["email"],
+                "role": r["role"],
+                "role_label": ROLE_LABELS.get(r["role"], r["role"]),
+                "expires_at": r["expires_at"],
+            }
+            for r in invite_rows
+        ],
     }
+
+
+@router.delete("/api/margaret/supporters/invites/{invite_id}")
+def margaret_cancel_invite(invite_id: str, _user: dict = Depends(get_current_user)):
+    """Margaret cancels a pending (not yet accepted) invite."""
+    db = get_db()
+    row = db.execute(
+        "SELECT id FROM supporter_invites WHERE id = ? AND accepted_at IS NULL",
+        (invite_id,),
+    ).fetchone()
+    if not row:
+        db.close()
+        raise HTTPException(status_code=404, detail="Invite not found or already accepted.")
+    db.execute("DELETE FROM supporter_invites WHERE id = ?", (invite_id,))
+    db.commit()
+    db.close()
+    return {"status": "cancelled"}
 
 
 @router.post("/api/margaret/supporters/invite")
@@ -356,6 +389,8 @@ def margaret_invite_supporter(body: InviteBody, user: dict = Depends(get_current
         raise HTTPException(status_code=400, detail="Respite role requires an expiry date.")
 
     db = get_db()
+    now = int(time.time())
+
     existing = db.execute(
         "SELECT id, revoked_at FROM supporter_accounts WHERE email = ?", (email,)
     ).fetchone()
@@ -363,8 +398,13 @@ def margaret_invite_supporter(body: InviteBody, user: dict = Depends(get_current
         db.close()
         raise HTTPException(status_code=400, detail="This person already has an active supporter account.")
 
+    # Cancel any still-pending invite for this email before creating a new one
+    db.execute(
+        "DELETE FROM supporter_invites WHERE email = ? AND accepted_at IS NULL AND expires_at > ?",
+        (email, now),
+    )
+
     token = secrets.token_urlsafe(32)
-    now = int(time.time())
     db.execute(
         "INSERT INTO supporter_invites (id, email, role, invited_by, token, expires_at) VALUES (?,?,?,?,?,?)",
         (str(uuid.uuid4()), email, role, "margaret", token, now + INVITE_TTL),

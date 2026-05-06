@@ -25,6 +25,14 @@ interface SupporterAccount {
   last_active_at: number | null
 }
 
+interface PendingInvite {
+  id: string
+  email: string
+  role: string
+  role_label: string
+  expires_at: number
+}
+
 const SUPPORTER_ROLES = [
   { value: 'key_contact',       label: 'Key Contact — manages all other supporters' },
   { value: 'family_secondary',  label: 'Family — can update menu & view schedule' },
@@ -214,6 +222,7 @@ export default function Settings() {
 
   // Supporter management
   const [supporters, setSupporters] = useState<SupporterAccount[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [supportersLoading, setSupportersLoading] = useState(true)
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -275,7 +284,10 @@ export default function Settings() {
   const fetchSupporters = useCallback(() => {
     fetch('/api/margaret/supporters', { ...FETCH_OPTS })
       .then(r => r.json())
-      .then(d => setSupporters(d.supporters ?? []))
+      .then(d => {
+        setSupporters(d.supporters ?? [])
+        setPendingInvites(d.pending_invites ?? [])
+      })
       .catch(() => {})
       .finally(() => setSupportersLoading(false))
   }, [])
@@ -316,6 +328,16 @@ export default function Settings() {
       fetchSupporters()
     } catch {
       showNotice('Could not remove access. Try again.', false)
+    }
+  }
+
+  async function cancelInvite(id: string, email: string) {
+    if (!window.confirm(`Cancel the invite to ${email}?`)) return
+    try {
+      await fetch(`/api/margaret/supporters/invites/${id}`, { method: 'DELETE', ...FETCH_OPTS })
+      fetchSupporters()
+    } catch {
+      showNotice('Could not cancel invite. Try again.', false)
     }
   }
 
@@ -941,12 +963,36 @@ export default function Settings() {
           </button>
         )}
 
+        {/* Pending invites */}
+        {pendingInvites.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Pending ({pendingInvites.length})
+            </p>
+            {pendingInvites.map(inv => (
+              <div key={inv.id} style={{ background: 'var(--color-surface)', borderRadius: 14, border: '2px dashed var(--color-border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, minHeight: 64 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--color-text)' }}>{inv.email}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>{inv.role_label} · Invite pending</p>
+                </div>
+                <button
+                  onClick={() => cancelInvite(inv.id, inv.email)}
+                  aria-label={`Cancel invite to ${inv.email}`}
+                  style={{ ...BTN, minHeight: 44, fontSize: 13, background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Supporter list */}
         {supportersLoading ? (
           <p style={{ margin: 0, fontSize: 16, color: 'var(--color-text-muted)' }}>Loading…</p>
-        ) : supporters.filter(s => !s.revoked).length === 0 ? (
+        ) : supporters.filter(s => !s.revoked).length === 0 && pendingInvites.length === 0 ? (
           <p style={{ margin: 0, fontSize: 16, color: 'var(--color-text-muted)' }}>No supporters yet. Add someone above.</p>
-        ) : (
+        ) : supporters.filter(s => !s.revoked).length === 0 ? null : (
           supporters.filter(s => !s.revoked).map(s => (
             <div key={s.id} style={{ background: 'var(--color-surface)', borderRadius: 16, border: '2px solid var(--color-border)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, minHeight: 72 }}>
               <div style={{ flex: 1, minWidth: 0 }}>

@@ -3,7 +3,7 @@
  * Shows only the sections relevant to this supporter's role.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSupporterAuth } from '../context/SupporterAuthContext'
 import MenuEditor from './supporter/MenuEditor'
 import SupporterManagement from './supporter/SupporterManagement'
@@ -17,6 +17,14 @@ export default function SupporterDashboard() {
   const { supporter, logout } = useSupporterAuth()
   const [tab, setTab] = useState<Tab>('menu')
   const [loggingOut, setLoggingOut] = useState(false)
+  const [primaryName, setPrimaryName] = useState('Margaret')
+
+  useEffect(() => {
+    fetch('/api/auth/primary', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.name) setPrimaryName(d.name) })
+      .catch(() => {})
+  }, [])
 
   if (!supporter) return null
 
@@ -54,7 +62,7 @@ export default function SupporterDashboard() {
                 {supporter.name}
               </h1>
               <p style={{ margin: '4px 0 0', fontSize: 16, color: 'var(--color-text-muted)' }}>
-                {supporter.role_label} for Margaret
+                {supporter.role_label} for {primaryName}
               </p>
             </div>
             <button
@@ -140,7 +148,7 @@ export default function SupporterDashboard() {
           <div style={{ textAlign: 'center', padding: '60px 24px' }}>
             <p style={{ fontSize: 40, margin: '0 0 16px' }}>👋</p>
             <p style={{ fontSize: 20, color: 'var(--color-text-muted)' }}>
-              You're signed in as <strong>{supporter.role_label} for Margaret</strong>.
+              You're signed in as <strong>{supporter.role_label} for {primaryName}</strong>.
             </p>
             <p style={{ fontSize: 18, color: 'var(--color-text-muted)', marginTop: 8 }}>
               More supporter features coming soon.

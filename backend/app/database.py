@@ -165,6 +165,17 @@ def init_db() -> None:
             id              TEXT PRIMARY KEY DEFAULT 'singleton',
             last_published  TEXT
         );
+
+        -- ── Reminders ─────────────────────────────────────────────────────────
+
+        CREATE TABLE IF NOT EXISTS reminders (
+            id               TEXT PRIMARY KEY,
+            user_id          TEXT NOT NULL REFERENCES users(id),
+            label            TEXT NOT NULL,
+            interval_minutes INTEGER NOT NULL DEFAULT 120,
+            enabled          INTEGER NOT NULL DEFAULT 1,
+            created_at       INTEGER NOT NULL
+        );
     """)
     conn.commit()
 

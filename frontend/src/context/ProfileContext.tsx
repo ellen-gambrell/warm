@@ -31,6 +31,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Apply font size preference to <html> so CSS variables scale via data-font-size
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font-size', profile.fontSize)
+  }, [profile.fontSize])
+
   function setProfile(p: UserProfile) {
     setProfileState(p)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(p))

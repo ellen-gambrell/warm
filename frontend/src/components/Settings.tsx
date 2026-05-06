@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useProfile } from '../context/ProfileContext'
 
 // ── Supporter management types ─────────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ function ServiceCard({
 export default function Settings() {
   const { user, logout } = useAuth()
   const { themeId, themes, setTheme } = useTheme()
+  const { profile, setProfile } = useProfile()
   const [status, setStatus]   = useState<ConnectionStatus | null>(null)
   const [busy, setBusy]       = useState<Record<string, boolean>>({})
   const [notice, setNotice]   = useState<{ msg: string; ok: boolean } | null>(null)
@@ -811,6 +813,55 @@ export default function Settings() {
                 }}>
                   ✓ Active
                 </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Font size ── */}
+      <h3 style={{ margin: '24px 0 12px', fontSize: 15, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        Text size
+      </h3>
+      <div
+        role="radiogroup"
+        aria-label="Text size"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 32 }}
+      >
+        {([
+          { id: 'normal',  label: 'Standard', preview: 18 },
+          { id: 'large',   label: 'Large',    preview: 22 },
+          { id: 'xlarge',  label: 'X-Large',  preview: 28 },
+        ] as const).map(opt => {
+          const active = profile.fontSize === opt.id
+          return (
+            <button
+              key={opt.id}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setProfile({ ...profile, fontSize: opt.id })}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                padding: '14px 10px',
+                borderRadius: 18,
+                border: active ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
+                background: active ? 'var(--color-surface-raised)' : 'var(--color-surface)',
+                cursor: 'pointer',
+                minHeight: 'auto',
+                fontFamily: 'inherit',
+              }}
+            >
+              <span style={{ fontSize: opt.preview, fontWeight: 700, color: 'var(--color-text)', lineHeight: 1 }}>
+                Aa
+              </span>
+              <span style={{ fontSize: 13, color: active ? 'var(--color-accent)' : 'var(--color-text-muted)', fontWeight: active ? 700 : 400 }}>
+                {opt.label}
+              </span>
+              {active && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-accent)' }}>✓ Active</span>
               )}
             </button>
           )

@@ -4,6 +4,43 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## Builder: "Now" backlog complete — 2026-05-06
+
+[Builder] All four "Now" backlog items shipped. Build clean (zero TypeScript errors).
+
+| Item | What shipped |
+|------|-------------|
+| Font size control | 3-level picker (Standard / Large / X-Large) in Settings → Appearance. CSS variables (--fs-sm through --fs-2xl) scale body text and key UI elements. Home screen heading and tile labels use CSS vars. ProfileContext applies `data-font-size` to `<html>` so the whole app responds. Default is Large (existing behavior). |
+| Pressure relief / medication reminders | New `/reminders` route + ⏰ tile on Home (3rd position). Backend CRUD at `/api/reminders`. `reminders` DB table added. `ReminderContext` manages global timers — active across all views, not just the Reminders screen. On fire: TTS reads the label aloud + fixed banner appears with "Done" dismiss button. Auto-dismisses after 60 seconds. Timers restart when reminders are edited. |
+| Supporter setup (code review) | Full invite flow reviewed. Email service sends correctly. Token validation, OAuth callback, and invite acceptance all implemented and correct. **Action needed: end-to-end test with a real supporter.** See checklist below. |
+| Voice input (code review) | Web Speech API is wired in ChatView and GmailView. iOS Safari supports it. **Action needed: real-device validation with Margaret.** See checklist below. |
+
+### Supporter invite — end-to-end test checklist
+
+Requires production deploy to be live first.
+
+- [ ] From Settings → Supporters → Add a supporter, enter a real email + role
+- [ ] Confirm "Invite sent" message appears
+- [ ] Open the invite email on another device/account
+- [ ] Click the invite link — should load `/supporter/accept?token=...` with role info
+- [ ] Click "Accept & sign in with Google" — should authenticate and land on `/supporter`
+- [ ] Verify supporter appears in Settings → Supporters list (name, role, last active)
+- [ ] Have supporter visit warm.care/supporter — should see their dashboard
+
+If invite email doesn't arrive: check SMTP config on server (SMTP_HOST, SMTP_USER, SMTP_PASS in backend/.env). In dev, invite links are printed to server stderr — check Passenger logs.
+
+### Voice input — real-device validation checklist
+
+- [ ] Open warm.care on Margaret's iPhone in Safari
+- [ ] Go to Chat → tap mic button → speak a sentence
+- [ ] Confirm transcription appears in chat input
+- [ ] Confirm the AI responds
+- [ ] Test with background noise (TV, people talking nearby)
+- [ ] Test with Margaret's actual speaking style (cadence, phrasing)
+- [ ] If recognition is unreliable: flag to AT Specialist; may need a fallback keyboard input path
+
+---
+
 ## Infra Needed — 2026-04-29 🚨 DEPLOY THIS
 
 [Builder Agent] `origin/main` is now fully up to date — 20 commits pushed, zero TypeScript errors. This is a full deploy of everything built since 2026-04-25. The server is currently running the WebAuthn-era scaffold only. This deploy brings production current.

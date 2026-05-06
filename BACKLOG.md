@@ -16,10 +16,10 @@ Priority order. Director owns sequencing. Builder picks highest unassigned item.
 
 These are the highest-leverage improvements for the person actually using this app today.
 
-- [ ] **Font size control** — Margaret uses a stylus; she reads from a phone. Default text sizes have not been validated with her. Add a font size setting (small / medium / large / x-large) that persists and applies globally. Do not bury in Settings — surface it prominently.
-- [ ] **Voice input: does it work for Margaret?** — Web Speech API accuracy on iOS Safari needs validation. If it's unreliable, it's her primary input degraded. Test and document. Flag to AT Specialist if issues found.
-- [ ] **Pressure relief / medication reminders** — Scheduled reminders are a safety-critical need for SCI users (repositioning every 2 hours prevents pressure injuries). Simple recurring reminder with TTS readout. No complex scheduling UI.
-- [ ] **Supporter setup** — Margaret needs to actually invite her key contacts. Validate the invite flow end-to-end: send email, receive invite, accept via Google, view in supporter dashboard. Fix anything broken.
+- [x] **Font size control** — ✅ 2026-05-06. Standard / Large (default) / X-Large picker in Settings → Appearance. CSS vars applied globally via `data-font-size` on `<html>`. Home screen heading + tile labels scale with preference.
+- [ ] **Voice input: does it work for Margaret?** — Web Speech API is wired in Chat and Gmail. **Needs real-device validation with Margaret on iOS Safari.** Checklist in NOTES.md 2026-05-06. Flag to AT Specialist if accuracy is poor.
+- [x] **Pressure relief / medication reminders** — ✅ 2026-05-06. ⏰ tile on Home (3rd position). `/reminders` view with add/pause/resume/delete. Backend CRUD + DB table. ReminderContext runs global timers across all views. On fire: TTS + dismissable banner. Auto-dismiss after 60s.
+- [ ] **Supporter setup** — Code reviewed and complete. **Needs end-to-end test with a real invite.** Checklist in NOTES.md 2026-05-06.
 
 ---
 

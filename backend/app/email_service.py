@@ -1,49 +1,87 @@
 """
-Email delivery via GreenGeeks SMTP (port 465, implicit SSL).
+Email delivery via AWS SES.
 
-In dev (SMTP_HOST not configured), emails are printed to stderr instead.
+Replaces the previous SMTP/GreenGeeks integration. The SMTP code silently
+dropped emails when any required env var was missing or misnamed (a real
+issue we hit: `SMTP_PASs` typo caused all warm.care emails to fall through
+to dev-mode stderr prints in production). This module is designed so silent
+failure cannot happen:
+
+  - At import time, if AWS_ACCESS_KEY_ID is missing, we log a loud WARNING.
+  - On every send, success and failure are logged explicitly to stderr.
+  - In dev (no creds), emails print to stderr with an UNMISSABLE banner.
+
+External API (`send_magic_link_email`, `send_password_set_email`,
+`send_supporter_invite_email`) is unchanged — callers don't move.
 """
 
 import os
-import smtplib
 import sys
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from typing import Optional
 
-SMTP_HOST = os.environ.get("SMTP_HOST", "")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "465"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASS = os.environ.get("SMTP_PASS", "")
-SMTP_FROM = os.environ.get("SMTP_FROM", "") or SMTP_USER
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "warm.care <hello@warm.care>")
+
+# Loud startup signal — caught the silent-fail regression we hit before.
+if not AWS_ACCESS_KEY_ID:
+    print(
+        "[email_service] WARNING: AWS_ACCESS_KEY_ID not set — emails will "
+        "NOT be delivered (dev mode: printed to stderr instead).",
+        file=sys.stderr,
+        flush=True,
+    )
+
+_ses_client = None
+
+
+def _get_client():
+    """Lazy boto3 client. Returns None when creds aren't configured."""
+    global _ses_client
+    if _ses_client is not None:
+        return _ses_client
+    if not AWS_ACCESS_KEY_ID:
+        return None
+    import boto3
+    _ses_client = boto3.client(
+        "ses",
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
+    return _ses_client
 
 
 def _send(to: str, subject: str, body: str) -> None:
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+    client = _get_client()
+    if client is None:
+        # Loud dev fallback. Never silent.
         bar = "=" * 60
         print(f"\n{bar}", file=sys.stderr)
-        print(f"[DEV EMAIL]  To: {to}", file=sys.stderr)
-        print(f"[DEV EMAIL]  Subject: {subject}", file=sys.stderr)
-        print(f"[DEV EMAIL]  Body:\n{body.strip()}", file=sys.stderr)
+        print(f"[EMAIL NOT SENT — no AWS creds]", file=sys.stderr)
+        print(f"  To:      {to}", file=sys.stderr)
+        print(f"  Subject: {subject}", file=sys.stderr)
+        print(f"  Body:\n{body.strip()}", file=sys.stderr)
         print(f"{bar}\n", file=sys.stderr, flush=True)
         return
 
-    msg = MIMEMultipart()
-    msg["Subject"] = subject
-    msg["From"]    = SMTP_FROM
-    msg["To"]      = to
-    msg.attach(MIMEText(body, "plain"))
-
-    # Port 465 = implicit SSL; anything else = STARTTLS
-    if SMTP_PORT == 465:
-        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as s:
-            s.login(SMTP_USER, SMTP_PASS)
-            s.sendmail(SMTP_FROM, to, msg.as_string())
-    else:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
-            s.ehlo()
-            s.starttls()
-            s.login(SMTP_USER, SMTP_PASS)
-            s.sendmail(SMTP_FROM, to, msg.as_string())
+    try:
+        response = client.send_email(
+            Source=EMAIL_FROM,
+            Destination={"ToAddresses": [to]},
+            Message={
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {"Text": {"Data": body, "Charset": "UTF-8"}},
+            },
+        )
+        msg_id = response.get("MessageId", "?")
+        print(f"[email_service] SES sent to={to} subject={subject!r} id={msg_id}",
+              file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[email_service] SES FAILED to={to} subject={subject!r} err={e}",
+              file=sys.stderr, flush=True)
+        raise
 
 
 def send_magic_link_email(to: str, name: str, link: str) -> None:

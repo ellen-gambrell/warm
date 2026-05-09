@@ -85,6 +85,36 @@ Copyright: "© 2026 Quantum Moon LLC. All rights reserved."
 
 ---
 
+## PR Title Convention
+
+PR titles on the `warm` repo are **sailing terms.** Short, evocative,
+nautical. The descriptive change-summary lives in the PR body, not the
+title.
+
+warm.care is about steadying someone through their day. Sailing language
+fits — every action is named, every motion intentional, the boat moves
+because the crew works together.
+
+Examples:
+
+- "Maiden voyage"
+- "Set the course"
+- "Hoist the mainsail"
+- "Trim the sails"
+- "Tack into wind"
+- "Steady the helm"
+- "Make port"
+- "Cast off lines"
+- "Anchor's aweigh"
+- "Plot the course"
+- "Heading aweigh"
+- "Right the rudder"
+
+Branch names and commit messages stay descriptive — only the PR title
+follows this convention.
+
+---
+
 ## Recent Changes
 
 <!-- Builder Agent updates after each meaningful commit -->

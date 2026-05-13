@@ -172,7 +172,7 @@ def get_me(current: dict = Depends(get_current_user)):
     db = get_db()
     try:
         user = db.execute(
-            "SELECT id, name, email, role FROM users WHERE id = ?", (user_id,)
+            "SELECT id, name, email, role, input_profile FROM users WHERE id = ?", (user_id,)
         ).fetchone()
         if not user:
             raise HTTPException(404, "User not found.")
@@ -181,7 +181,36 @@ def get_me(current: dict = Depends(get_current_user)):
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
+            "input_profile": user["input_profile"] or "stylus",
         }
+    finally:
+        db.close()
+
+
+# ── Preferences ───────────────────────────────────────────────────────────────
+
+_VALID_PROFILES = {"stylus", "voice", "switch", "gaze", "touch",
+                   "sip_and_puff", "eye_gaze", "standard_touch"}  # legacy aliases accepted
+
+
+class PreferencesBody(BaseModel):
+    input_profile: Optional[str] = None
+
+
+@router.patch("/preferences")
+def update_preferences(body: PreferencesBody, current: dict = Depends(get_current_user)):
+    user_id = current["sub"]
+    db = get_db()
+    try:
+        if body.input_profile is not None:
+            if body.input_profile not in _VALID_PROFILES:
+                raise HTTPException(400, f"Invalid input_profile. Must be one of: {', '.join(_VALID_PROFILES)}")
+            db.execute(
+                "UPDATE users SET input_profile = ? WHERE id = ?",
+                (body.input_profile, user_id),
+            )
+            db.commit()
+        return {"status": "ok"}
     finally:
         db.close()
 

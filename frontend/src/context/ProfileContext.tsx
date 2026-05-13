@@ -50,9 +50,21 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     document.documentElement.setAttribute('data-font-size', profile.fontSize)
   }, [profile.fontSize])
 
+  // Apply input profile as a data attribute for future CSS targeting
+  useEffect(() => {
+    document.documentElement.setAttribute('data-input-profile', profile.accessProfile)
+  }, [profile.accessProfile])
+
   function setProfile(p: UserProfile) {
     setProfileState(p)
     localStorage.setItem(storageKey(userId), JSON.stringify(p))
+    // Sync input profile to server (fire-and-forget)
+    fetch('/api/auth/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ input_profile: p.accessProfile }),
+    }).catch(() => {})
   }
 
   function completeOnboarding(p: UserProfile) {

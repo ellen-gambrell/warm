@@ -8,10 +8,97 @@ import { useSupporterAuth } from '../context/SupporterAuthContext'
 import MenuEditor from './supporter/MenuEditor'
 import SupporterManagement from './supporter/SupporterManagement'
 
-type Tab = 'menu' | 'supporters'
+type Tab = 'menu' | 'supporters' | 'cards'
 
 const MENU_EDIT_ROLES = new Set(['key_contact', 'family_secondary', 'homemaker'])
 const MANAGE_ROLES = new Set(['key_contact'])
+
+interface SupporterCard {
+  id: string
+  tile_name: string
+  last_result: string | null
+  last_run_at: number | null
+  schedule: string
+}
+
+function CardsView() {
+  const [cards, setCards] = useState<SupporterCard[]>([])
+  const [loading, setLoading] = useState(true)
+  const [active, setActive] = useState<SupporterCard | null>(null)
+
+  useEffect(() => {
+    fetch('/api/supporter/cards', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setCards(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (active) {
+    const ts = active.last_run_at
+      ? `Updated ${new Date(active.last_run_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+      : 'First update pending'
+    return (
+      <div>
+        <button
+          onClick={() => setActive(null)}
+          aria-label="Back to cards"
+          style={{ minHeight: 48, padding: '0 18px', borderRadius: 12, border: '2px solid var(--color-border)', background: 'transparent', color: 'var(--color-text)', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}
+        >← Back</button>
+        <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: 'var(--color-text)' }}>{active.tile_name}</h2>
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-muted)' }}>{ts}</p>
+        {active.last_result ? (
+          <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 20, border: '2px solid var(--color-border)', fontSize: 17, lineHeight: 1.75, color: 'var(--color-text)', whiteSpace: 'pre-wrap' }}>
+            {active.last_result}
+          </div>
+        ) : (
+          <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 20, border: '2px solid var(--color-border)', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 17 }}>
+            First update pending.
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (loading) return <p style={{ color: 'var(--color-text-muted)', fontSize: 16 }}>Loading…</p>
+
+  if (cards.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 24px' }}>
+        <p style={{ fontSize: 32, margin: '0 0 12px' }}>✨</p>
+        <p style={{ fontSize: 18, color: 'var(--color-text-muted)' }}>No cards shared yet.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {cards.map(card => (
+        <button
+          key={card.id}
+          onClick={() => setActive(card)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: '16px 18px', borderRadius: 18, width: '100%',
+            background: 'var(--color-surface)', border: '2px solid var(--color-border)',
+            cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', minHeight: 72,
+          }}
+        >
+          <span style={{ fontSize: 28 }}>✨</span>
+          <span style={{ flex: 1 }}>
+            <span style={{ display: 'block', fontSize: 17, fontWeight: 700, color: 'var(--color-text)' }}>{card.tile_name}</span>
+            <span style={{ display: 'block', fontSize: 13, color: 'var(--color-text-muted)' }}>
+              {card.last_run_at
+                ? `Updated ${new Date(card.last_run_at * 1000).toLocaleDateString()}`
+                : 'Pending first update'}
+            </span>
+          </span>
+          <span style={{ color: 'var(--color-text-muted)', fontSize: 18 }}>›</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function SupporterDashboard() {
   const { supporter, logout } = useSupporterAuth()
@@ -35,6 +122,12 @@ export default function SupporterDashboard() {
     setLoggingOut(true)
     await logout()
   }
+
+  const tabs = [
+    { key: 'menu' as Tab, label: '🍽️ Menu', show: canEditMenu || true },
+    { key: 'cards' as Tab, label: '✨ Cards', show: true },
+    { key: 'supporters' as Tab, label: '👥 Supporters', show: canManage },
+  ].filter(t => t.show)
 
   return (
     <div
@@ -88,8 +181,8 @@ export default function SupporterDashboard() {
         </div>
       </div>
 
-      {/* ── Tab bar (only if more than one section available) ── */}
-      {canManage && (
+      {/* ── Tab bar ── */}
+      {tabs.length > 1 && (
         <div
           style={{
             display: 'flex',
@@ -97,49 +190,44 @@ export default function SupporterDashboard() {
             borderBottom: '2px solid var(--color-border)',
           }}
         >
-          {[
-            { key: 'menu' as Tab, label: '🍽️ Menu', show: canEditMenu },
-            { key: 'supporters' as Tab, label: '👥 Supporters', show: canManage },
-          ]
-            .filter(t => t.show)
-            .map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                style={{
-                  flex: 1,
-                  minHeight: 56,
-                  border: 'none',
-                  borderBottom: tab === t.key ? '3px solid var(--color-accent)' : '3px solid transparent',
-                  background: 'transparent',
-                  color: tab === t.key ? 'var(--color-accent)' : 'var(--color-text-muted)',
-                  fontFamily: 'inherit',
-                  fontWeight: 700,
-                  fontSize: 17,
-                  cursor: 'pointer',
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                flex: 1,
+                minHeight: 56,
+                border: 'none',
+                borderBottom: tab === t.key ? '3px solid var(--color-accent)' : '3px solid transparent',
+                background: 'transparent',
+                color: tab === t.key ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                fontFamily: 'inherit',
+                fontWeight: 700,
+                fontSize: 17,
+                cursor: 'pointer',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       )}
 
       {/* ── Content ── */}
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 20px' }}>
-        {/* Section header */}
-        {!canManage && (
-          <h2 style={{ margin: '0 0 20px', fontSize: 24, fontWeight: 800, color: 'var(--color-text)' }}>
-            🍽️ Daily Menu
-          </h2>
-        )}
-
-        {canManage && tab === 'supporters' ? (
+        {tab === 'supporters' && canManage ? (
           <>
             <h2 style={{ margin: '0 0 20px', fontSize: 24, fontWeight: 800, color: 'var(--color-text)' }}>
               👥 Supporter Accounts
             </h2>
             <SupporterManagement />
+          </>
+        ) : tab === 'cards' ? (
+          <>
+            <h2 style={{ margin: '0 0 20px', fontSize: 24, fontWeight: 800, color: 'var(--color-text)' }}>
+              ✨ Cards
+            </h2>
+            <CardsView />
           </>
         ) : canEditMenu ? (
           <MenuEditor />
@@ -151,7 +239,7 @@ export default function SupporterDashboard() {
               You're signed in as <strong>{supporter.role_label} for {primaryName}</strong>.
             </p>
             <p style={{ fontSize: 18, color: 'var(--color-text-muted)', marginTop: 8 }}>
-              More supporter features coming soon.
+              Check the Cards tab to see any shared updates.
             </p>
           </div>
         )}

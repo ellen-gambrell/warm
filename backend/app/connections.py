@@ -152,8 +152,7 @@ def _google_cfg():
         "client_id":     os.getenv("GOOGLE_CLIENT_ID", ""),
         "client_secret": os.getenv("GOOGLE_CLIENT_SECRET", ""),
         "redirect_uri":  (
-            os.getenv("GOOGLE_AUTH_REDIRECT_URI")
-            or os.getenv("GOOGLE_REDIRECT_URI")
+            os.getenv("GOOGLE_CONNECTIONS_REDIRECT_URI")
             or "http://localhost:8000/api/connections/google/callback"
         ),
         "frontend_url":  os.getenv("MAGIC_LINK_BASE_URL", "http://localhost:5173"),

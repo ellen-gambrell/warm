@@ -4,6 +4,20 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## [Builder 2026-05-13] /privacy page — complete
+
+Public `/privacy` route added for Google OAuth consent screen requirement.
+
+**Files:**
+- `frontend/src/components/Privacy.tsx` — new component, full policy text, NavBar, legal footer
+- `frontend/src/App.tsx` — public route added before auth check
+- Footer "Privacy policy" link added to: Home, Settings, BillsView, GmailView, Drive, Login, Onboarding
+
+**Build:** zero TypeScript errors
+**Commit:** 80ddcc0
+
+---
+
 ## [Builder 2026-05-13] Bills feature — code-complete, pending review
 
 **Branch:** `claude/elated-black-78a433`

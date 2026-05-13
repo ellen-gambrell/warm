@@ -59,8 +59,8 @@ Last meaningful work: Security hardening (HIGH-1/2, MEDIUM-1/2/3, LOW-1) + admin
 - Sign out button (Home + Settings)
 - 4-theme system (warm dark, warm light, adaptive, high contrast)
 
-### Pending Deploy
-PR #6 ready to merge — security hardening + admin badge. See NOTES.md for test plan.
+### Live as of 2026-05-13
+PRs #5, #6, #7 merged and deployed. All migrations applied. 2 workers healthy.
 
 ---
 
@@ -126,7 +126,7 @@ follows this convention.
   /admin route → AdminPanel (pending queue, approve/deny, 64px targets). Login reads ?error= params.
   DB migrations applied on startup. CI green. Health 200 OK.
 
-[Builder 2026-05-13] PENDING DEPLOY — security hardening + polish (PR #6, branch claude/cool-maxwell-30b110)
+[Builder 2026-05-13] LIVE — security hardening + polish (PR #6, deployed 2026-05-13)
   Security (HIGH-1/2, MEDIUM-1/2/3, LOW-1/2, INFO-2): all 2026-05-12 findings resolved.
     password_login cookie, auth_states DB, role removed from cache, google-auth sig verify,
     access request rate limit, uuid.UUID path params, ARCHITECTURE.md created.

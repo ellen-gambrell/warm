@@ -869,7 +869,7 @@ Polish:
 
 ### For next agent
 
-**Next immediate step:** merge PR #6. No infra steps required.
+**✅ DEPLOYED 2026-05-13** — PRs #5, #6, #7 all merged and live. All migrations applied. CI clean. No manual steps needed.
 
 **After merge:** the user (ellengambrell@gmail.com) can approve/deny access
 requests from warm.care/admin. New users log in via Google → request flow.

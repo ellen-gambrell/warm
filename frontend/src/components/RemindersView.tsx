@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useReminders } from '../context/ReminderContext'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 const INTERVAL_OPTIONS = [
   { value: 30,   label: 'Every 30 minutes' },
@@ -24,6 +25,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' }
 const FETCH_OPTS   = { credentials: 'include' as RequestCredentials }
 
 export default function RemindersView() {
+  useTrackVisit('reminders')
   const { reminders, refreshReminders } = useReminders()
   const [showForm, setShowForm]         = useState(false)
   const [label, setLabel]               = useState('')

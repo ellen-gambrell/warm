@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import ConfirmationPanel, { type PendingAction } from './ConfirmationPanel'
 import { NAVBAR_HEIGHT } from './NavBar'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 // ── Typing indicator ───────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ function stripMarkdown(text: string): string {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function ChatView() {
+  useTrackVisit('chat')
   const [messages,   setMessages]   = useState<Message[]>([])
   const [input,      setInput]      = useState('')
   const [isLoading,  setIsLoading]  = useState(false)

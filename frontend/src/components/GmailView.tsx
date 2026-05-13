@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { navigate } from '../App'
 import ConfirmationPanel, { type PendingAction } from './ConfirmationPanel'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyWindow = Window & { SpeechRecognition?: any; webkitSpeechRecognition?: any }
@@ -639,6 +640,7 @@ function EmailViewer({ messageId, onBack }: EmailViewerProps) {
 // ── Main inbox view ──────────────────────────────────────────────────────────
 
 export default function GmailView() {
+  useTrackVisit('gmail')
   const { user } = useAuth()
   const [messages, setMessages] = useState<GmailMessage[]>([])
   const [loading, setLoading] = useState(true)

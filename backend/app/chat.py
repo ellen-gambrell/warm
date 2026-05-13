@@ -170,6 +170,22 @@ async def chat_message(body: ChatRequest, user: dict = Depends(get_current_user)
     _check_rate_limit(user["sub"])
     _check_injection(body.message)
 
+    # Increment daily message count (fire and forget — never block the chat)
+    try:
+        import datetime as _dt
+        from .database import get_db as _get_db
+        _db = _get_db()
+        _today = _dt.date.today().isoformat()
+        _db.execute(
+            "INSERT INTO daily_message_counts (date, count) VALUES (?, 1) "
+            "ON CONFLICT(date) DO UPDATE SET count = count + 1",
+            (_today,),
+        )
+        _db.commit()
+        _db.close()
+    except Exception:
+        pass
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured.")

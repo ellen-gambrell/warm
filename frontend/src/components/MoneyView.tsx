@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { navigate } from '../App'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 const BTN: React.CSSProperties = {
   minHeight: 64,
@@ -28,6 +29,7 @@ const INPUT: React.CSSProperties = {
 }
 
 export default function MoneyView() {
+  useTrackVisit('money')
   const { user } = useAuth()
   const [venmoUsername, setVenmoUsername] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)

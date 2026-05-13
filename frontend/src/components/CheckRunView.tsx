@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 // ── API types ──────────────────────────────────────────────────────────────────
 
@@ -205,6 +206,7 @@ function CheckRow({ item, onToggle }: RowProps) {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function CheckRunView() {
+  useTrackVisit('check-run')
   const now = new Date()
   const [year,  setYear]  = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)

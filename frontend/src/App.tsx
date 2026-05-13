@@ -21,6 +21,7 @@ import SupporterLogin, { SupporterAcceptInvite } from './components/SupporterLog
 import SupporterDashboard from './components/SupporterDashboard'
 import MenuView from './components/MenuView'
 import NavBar from './components/NavBar'
+import AdminPortal from './components/AdminPortal'
 
 /**
  * SPA navigation — pushes to browser history AND updates the NavContext stack
@@ -141,6 +142,7 @@ function AppShell() {
   else if (path === '/settings')   view = <Settings />
   else if (path === '/check-run')  view = <CheckRunView />
   else if (path === '/reminders')  view = <RemindersView />
+  else if (path === '/admin')      view = <AdminPortal />
   else view = <Home />
 
   return (

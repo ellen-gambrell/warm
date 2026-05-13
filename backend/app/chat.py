@@ -267,12 +267,14 @@ async def chat_message(body: ChatRequest, user: dict = Depends(get_current_user)
                     "description": f"Draft an email to {to_name} for your review",
                     "params":      fc_args,
                 },
+                "used_financial_context": bool(monarch_context),
             }
 
         # ── Plain text response ────────────────────────────────────────────────
         return {
-            "reply":          reply_text or getattr(response, "text", ""),
-            "pending_action": None,
+            "reply":                  reply_text or getattr(response, "text", ""),
+            "pending_action":         None,
+            "used_financial_context": bool(monarch_context),
         }
 
     except HTTPException:

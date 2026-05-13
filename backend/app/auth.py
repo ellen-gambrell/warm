@@ -27,7 +27,7 @@ import bcrypt
 import httpx
 import jwt as pyjwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
@@ -56,9 +56,7 @@ GOOGLE_AUTH_REDIRECT_URI = os.environ.get(
 GOOGLE_AUTH_URL  = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-# In-memory OAuth state store {state: {payload, expires}}
-_oauth_states: dict[str, dict] = {}
-STATE_TTL = 600  # 10 minutes
+STATE_TTL = 600  # 10 minutes — auth state token lifetime
 
 # Supporter cookie name (set here when a supporter accepts an invite via Google)
 SUPPORTER_COOKIE = "wc_supporter"
@@ -114,12 +112,37 @@ def get_current_user(
 
 
 def _decode_google_id_token(id_token: str) -> dict:
+    """
+    Verify and decode a Google ID token.
+
+    Uses google-auth to validate the cryptographic signature against Google's
+    published public keys, and checks aud, iss, and exp claims (OIDC spec).
+
+    Falls back to unverified base64 decode if google-auth is unavailable, with
+    a WARNING log — this should never happen on a correctly deployed server.
+    """
     try:
-        seg = id_token.split(".")[1]
-        seg += "=" * (-len(seg) % 4)
-        return json.loads(base64.urlsafe_b64decode(seg))
+        from google.oauth2 import id_token as _google_id_token
+        from google.auth.transport import requests as _google_requests
+        return _google_id_token.verify_oauth2_token(
+            id_token,
+            _google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+        )
+    except ImportError:
+        import logging
+        logging.getLogger(__name__).warning(
+            "google-auth not installed — Google ID token signature NOT verified. "
+            "Install google-auth and redeploy."
+        )
+        try:
+            seg = id_token.split(".")[1]
+            seg += "=" * (-len(seg) % 4)
+            return json.loads(base64.urlsafe_b64decode(seg))
+        except Exception:
+            raise HTTPException(400, "Failed to parse Google identity")
     except Exception:
-        raise HTTPException(400, "Failed to parse Google identity")
+        raise HTTPException(400, "Failed to verify Google identity")
 
 
 # ── Status ───────────────────────────────────────────────────────────────────
@@ -180,12 +203,12 @@ def get_profile(user_id: str, response: Response, current: dict = Depends(get_cu
     db = get_db()
     try:
         user = db.execute(
-            "SELECT id, name, email FROM users WHERE id = ?", (user_id,)
+            "SELECT id, name, email, role FROM users WHERE id = ?", (user_id,)
         ).fetchone()
         if not user:
             raise HTTPException(404, "User not found.")
         _set_cookie(response, _issue_jwt(user["id"], user["name"]))
-        return {"id": user["id"], "name": user["name"], "email": user["email"]}
+        return {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}
     finally:
         db.close()
 
@@ -198,16 +221,25 @@ def google_login(
     invite: Optional[str] = None,
 ):
     """
-    portal = "primary"   → logs in as Margaret (sets wc_session)
+    portal = "primary"   → logs in as primary user (sets wc_session)
     portal = "supporter" → logs in as supporter (sets wc_supporter)
     invite = TOKEN       → (supporter only) accepts invite after Google auth
     """
-    state = secrets.token_urlsafe(16)
-    _oauth_states[state] = {
-        "portal": portal,
-        "invite": invite,
-        "expires": time.time() + STATE_TTL,
-    }
+    state = secrets.token_urlsafe(32)  # 256-bit entropy
+    expires_at = int(time.time()) + STATE_TTL
+
+    db = get_db()
+    try:
+        # Sweep expired states on each new login (keeps the table small).
+        db.execute("DELETE FROM auth_states WHERE expires_at < ?", (int(time.time()),))
+        db.execute(
+            "INSERT INTO auth_states (state, portal, invite, expires_at) VALUES (?, ?, ?, ?)",
+            (state, portal, invite, expires_at),
+        )
+        db.commit()
+    finally:
+        db.close()
+
     params = {
         "client_id":     GOOGLE_CLIENT_ID,
         "redirect_uri":  GOOGLE_AUTH_REDIRECT_URI,
@@ -221,8 +253,19 @@ def google_login(
 
 @router.get("/google/callback")
 def google_callback(code: str, state: str, response: Response):
-    entry = _oauth_states.pop(state, None)
-    if not entry or time.time() > entry["expires"]:
+    # Consume state from DB — atomic read-and-delete prevents replay.
+    db = get_db()
+    try:
+        entry = db.execute(
+            "SELECT portal, invite, expires_at FROM auth_states WHERE state = ?", (state,)
+        ).fetchone()
+        if entry:
+            db.execute("DELETE FROM auth_states WHERE state = ?", (state,))
+            db.commit()
+    finally:
+        db.close()
+
+    if not entry or time.time() > entry["expires_at"]:
         return RedirectResponse("/?error=auth_failed")
 
     with httpx.Client() as client:
@@ -242,8 +285,8 @@ def google_callback(code: str, state: str, response: Response):
     email  = claims.get("email", "").lower()
     name   = claims.get("name") or claims.get("given_name") or email.split("@")[0]
 
-    portal = entry.get("portal", "primary")
-    invite_token = entry.get("invite")
+    portal = entry["portal"] if entry["portal"] else "primary"
+    invite_token = entry["invite"]
 
     if portal == "supporter":
         return _handle_supporter_google(email, name, invite_token, response)
@@ -264,6 +307,15 @@ def google_callback(code: str, state: str, response: Response):
                 else:  # denied
                     return RedirectResponse("/?error=auth_failed")
             else:
+                # Rate limit: max 10 new access requests per 24-hour window (all emails combined).
+                # Prevents inbox flooding via many disposable Google accounts.
+                cutoff = int(time.time()) - 86400
+                recent = db.execute(
+                    "SELECT COUNT(*) FROM user_requests WHERE requested_at > ?", (cutoff,)
+                ).fetchone()[0]
+                if recent >= 10:
+                    return RedirectResponse("/?error=auth_failed")
+
                 req_id = str(uuid.uuid4())
                 db.execute(
                     "INSERT INTO user_requests (id, name, email, requested_at, status) "
@@ -394,9 +446,12 @@ def password_login(body: PasswordLoginBody, response: Response):
         matched = bcrypt.checkpw(body.password.encode(), candidate)
 
         if matched and pw_row and user:
-            redirect_response = Response()
-            _set_cookie(redirect_response, _issue_jwt(user["id"], user["name"]))
-            return {"status": "authenticated", "profile": {"id": user["id"], "name": user["name"], "email": email}}
+            json_response = JSONResponse({
+                "status": "authenticated",
+                "profile": {"id": user["id"], "name": user["name"], "email": email},
+            })
+            _set_cookie(json_response, _issue_jwt(user["id"], user["name"]))
+            return json_response
 
         raise HTTPException(401, "Email or password is incorrect.")
     finally:

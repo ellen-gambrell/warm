@@ -83,12 +83,13 @@ def pending_count(admin: dict = Depends(require_admin)):
 
 
 @router.post("/requests/{req_id}/approve")
-def approve_request(req_id: str, admin: dict = Depends(require_admin)):
+def approve_request(req_id: uuid.UUID, admin: dict = Depends(require_admin)):
+    req_id_str = str(req_id)
     db = get_db()
     now = int(time.time())
     try:
         req = db.execute(
-            "SELECT id, name, email, status FROM user_requests WHERE id = ?", (req_id,)
+            "SELECT id, name, email, status FROM user_requests WHERE id = ?", (req_id_str,)
         ).fetchone()
         if not req:
             raise HTTPException(404, "Request not found.")
@@ -108,10 +109,10 @@ def approve_request(req_id: str, admin: dict = Depends(require_admin)):
         db.execute(
             "UPDATE user_requests SET status = 'approved', reviewed_at = ?, reviewed_by = ? "
             "WHERE id = ?",
-            (now, admin["sub"], req_id),
+            (now, admin["sub"], req_id_str),
         )
         _log_event(db, admin["sub"], "admin:approve_request", {
-            "request_id": req_id,
+            "request_id": req_id_str,
             "email": req["email"],
         })
         db.commit()
@@ -123,12 +124,13 @@ def approve_request(req_id: str, admin: dict = Depends(require_admin)):
 
 
 @router.post("/requests/{req_id}/deny")
-def deny_request(req_id: str, admin: dict = Depends(require_admin)):
+def deny_request(req_id: uuid.UUID, admin: dict = Depends(require_admin)):
+    req_id_str = str(req_id)
     db = get_db()
     now = int(time.time())
     try:
         req = db.execute(
-            "SELECT id, name, email, status FROM user_requests WHERE id = ?", (req_id,)
+            "SELECT id, name, email, status FROM user_requests WHERE id = ?", (req_id_str,)
         ).fetchone()
         if not req:
             raise HTTPException(404, "Request not found.")
@@ -138,10 +140,10 @@ def deny_request(req_id: str, admin: dict = Depends(require_admin)):
         db.execute(
             "UPDATE user_requests SET status = 'denied', reviewed_at = ?, reviewed_by = ? "
             "WHERE id = ?",
-            (now, admin["sub"], req_id),
+            (now, admin["sub"], req_id_str),
         )
         _log_event(db, admin["sub"], "admin:deny_request", {
-            "request_id": req_id,
+            "request_id": req_id_str,
             "email": req["email"],
         })
         db.commit()

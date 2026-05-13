@@ -23,6 +23,7 @@ AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "warm.care <hello@warm.care>")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "ellengambrell@gmail.com")
 
 # Loud startup signal — caught the silent-fail regression we hit before.
 if not AWS_ACCESS_KEY_ID:
@@ -121,6 +122,42 @@ If you didn't request this, you can safely ignore this email.
 
 — warm.care
 """,
+    )
+
+
+def send_access_request_email(name: str, email: str) -> None:
+    _send(
+        to=ADMIN_EMAIL,
+        subject="New access request — warm.care",
+        body=(
+            f"{name} ({email}) has requested access to warm.care. "
+            "Log in to review it at https://warm.care/admin.\n\n— warm.care\n"
+        ),
+    )
+
+
+def send_welcome_email(to: str, name: str) -> None:
+    _send(
+        to=to,
+        subject="You have been approved — warm.care",
+        body=(
+            f"Hi {name},\n\n"
+            "Your access to warm.care has been approved.\n\n"
+            "Log in at https://warm.care\n\n— warm.care\n"
+        ),
+    )
+
+
+def send_denial_email(to: str, name: str) -> None:
+    _send(
+        to=to,
+        subject="Your warm.care access request",
+        body=(
+            f"Hi {name},\n\n"
+            "We weren't able to approve your request for access to warm.care. "
+            "If you think this is a mistake, reach out to the account holder directly.\n\n"
+            "— warm.care\n"
+        ),
     )
 
 

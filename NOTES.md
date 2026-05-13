@@ -6,6 +6,60 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## Infra Needed — 2026-05-12 — admin roles + user request queue
+
+**Trigger:** PR from branch `claude/cool-maxwell-30b110`. Merge to main first, then run this.
+
+**No new pip packages.** All imports are stdlib (`json`, `uuid`, `time`) + existing FastAPI/SQLite.
+
+**One env var to add before restarting:**
+
+```bash
+# Add ADMIN_EMAIL to the warm.care .env on Hetzner
+ssh hetzner "echo 'ADMIN_EMAIL=ellengambrell@gmail.com' >> /home/deploy/warmcare/.env"
+
+# Verify it landed
+ssh hetzner "grep ADMIN_EMAIL /home/deploy/warmcare/.env"
+```
+
+**The code deploy (GitHub Actions handles this automatically on merge to main):**
+- rsyncs backend to `/home/deploy/warmcare/`
+- restarts `warmcare.service`
+
+**If doing a manual deploy instead:**
+```bash
+cd /Users/ellengambrell/projects/warmcare
+git push  # triggers GitHub Actions — prefer this path
+
+# Or manual:
+rsync -avz --delete \
+  --exclude='.git' --exclude='frontend/' --exclude='__pycache__' \
+  --exclude='.env' --exclude='*.db' --exclude='venv/' \
+  ./ hetzner:/home/deploy/warmcare/
+ssh hetzner 'sudo systemctl restart warmcare'
+```
+
+**Verify:**
+```bash
+curl -si https://warm.care/api/health | head -2
+# expect: HTTP/2 200
+
+ssh hetzner 'journalctl -u warmcare -n 20 --no-pager'
+# expect: no import errors; "Application startup complete"
+```
+
+**What to look for in logs after restart:**
+- `[email_service] WARNING: AWS_ACCESS_KEY_ID not set` would be wrong — SES creds should already be in .env
+- No `ModuleNotFoundError` — no new packages needed
+- `Uvicorn running on 127.0.0.1:8002` confirms clean startup
+
+**DB migration is automatic** — `init_db()` runs on startup and will:
+1. Add `users.role` column (ALTER TABLE, try/except — safe on existing DB)
+2. `UPDATE users SET role='admin' WHERE email='ellengambrell@gmail.com'`
+3. Create `user_requests` and `user_events` tables (IF NOT EXISTS — safe)
+
+---
+
 ## Builder: "Now" backlog complete — 2026-05-06
 
 [Builder] All four "Now" backlog items shipped. Build clean (zero TypeScript errors).

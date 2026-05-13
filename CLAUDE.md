@@ -138,6 +138,14 @@ follows this convention.
 [Security 2026-04-27] ✅ RESOLVED — MEDIUM-4: Primary user signup gated after first registration. Commit 6730c42.
 [Security 2026-04-27] ✅ RESOLVED — MEDIUM-5: GOOGLE_AUTH_REDIRECT_URI standardized in connections.py. Commit 6730c42.
 
+[Security 2026-05-12] 🔴 OPEN — HIGH-1: password_login discards session cookie — cookie never set, password auth broken. auth.py:396–399. Builder fix needed.
+[Security 2026-05-12] 🔴 OPEN — HIGH-2: _oauth_states in-memory dict broken on 2-worker uvicorn — Google OAuth fails ~50% of the time. auth.py:60. Builder fix: move to existing oauth_states DB table.
+[Security 2026-05-12] 🟡 OPEN — MEDIUM-1: role cached in localStorage — care-environment UI bypass risk. AuthContext.tsx:57. Remove role from cache.
+[Security 2026-05-12] 🟡 OPEN — MEDIUM-2: Google ID token signature not verified (pre-existing). auth.py:116–122.
+[Security 2026-05-12] 🟡 OPEN — MEDIUM-3: No rate limit on access request creation. auth.py:google_callback.
+[Security 2026-05-12] 🔵 OPEN — LOW-1: req_id not UUID-typed. admin.py:81,121.
+[Security 2026-05-12] 🔵 OPEN — LOW-2: _oauth_states memory leak on abandoned flows. auth.py:60. Moot if HIGH-2 fixed.
+
 ---
 
 ## Open Questions / Decisions Needed

@@ -611,3 +611,231 @@ warm.care/admin is live for ellengambrell@gmail.com.
 - [AT Specialist: review] — AdminPanel component (64px targets, ARIA labels present; full AT review pending)
 - [Director: copy review needed] — pending_approval and auth_failed error messages in Login.tsx;
   AdminPanel heading/button copy
+
+---
+
+## [Security 2026-05-12] Review — admin roles, request queue, admin API, multi-user frontend
+
+Scope: commits 536e819, d92cc46. All prior RESOLVED findings confirmed unchanged.
+
+---
+
+### HIGH-1 — password_login silently discards the session cookie
+
+Severity:  HIGH
+Location:  backend/app/auth.py : lines 396–399
+Status:    Open (pre-existing — not introduced by this PR)
+
+Description:
+`password_login` creates a `Response()` object, calls `_set_cookie()` on it, then discards
+it and returns a plain dict. FastAPI returns the dict as JSON with no Set-Cookie header.
+The client updates AuthContext with the profile but has no session cookie — every subsequent
+authenticated API call returns 401. Password login is effectively broken server-side.
+Google OAuth (primary path) is unaffected.
+
+Evidence:
+```python
+redirect_response = Response()
+_set_cookie(redirect_response, _issue_jwt(user["id"], user["name"]))
+return {"status": "authenticated", "profile": {...}}   # ← redirect_response discarded
+```
+
+Recommendation:
+Return `redirect_response` directly, or use FastAPI's `JSONResponse` with the cookie
+set on it. Fastest fix: `return redirect_response` and put the profile in the body, or
+construct a `JSONResponse`, set the cookie on it, and return it.
+
+---
+
+### HIGH-2 — _oauth_states in-memory dict breaks on multi-worker uvicorn (pre-existing, now confirmed)
+
+Severity:  HIGH
+Location:  backend/app/auth.py : line 60
+Status:    Open (pre-existing — confirmed critical by 2-worker Hetzner deployment)
+
+Description:
+`_oauth_states` is a module-level Python dict. The Hetzner deploy runs 2 uvicorn workers
+(confirmed in infra summary). The state token is generated in whichever worker handles
+`/api/auth/google/login`. If the browser hits the other worker for `/api/auth/google/callback`,
+the state is not found → `auth_failed`. This causes Google OAuth to fail intermittently
+(roughly 50% of the time under round-robin load balancing). The existing `oauth_states`
+DB table (created in init_db) exists but is unused for primary auth.
+
+Evidence:
+- `_oauth_states: dict[str, dict] = {}` — module-level, not shared across processes
+- DB table `oauth_states` exists in schema but `google_login`/`google_callback` don't use it
+- Infra confirmed: 2 uvicorn workers active on Hetzner
+
+Recommendation:
+Replace `_oauth_states` dict with the existing `oauth_states` DB table.
+`google_login` inserts state row; `google_callback` reads and deletes it.
+TTL cleanup: add a migration or a background sweep for expired rows.
+
+---
+
+### MEDIUM-1 — role cached in localStorage — UI bypass possible from shared device
+
+Severity:  MEDIUM
+Location:  frontend/src/context/AuthContext.tsx : line 57
+Status:    Open
+
+Description:
+`role` is written to `localStorage.warmcare_user_cache`. A person with physical access
+to the device (realistic in care/caregiver environments) can open DevTools, set
+`role: "admin"` in localStorage, and briefly see the AdminPanel UI — including pending
+requestor names and email addresses — before the next `/api/auth/me` call corrects it.
+No admin actions can be completed (server-side `require_admin` queries the DB and will
+return 403), but requestor PII (name, email) is visible during that window.
+
+Evidence:
+`writeCache` stores `{ id, name, email, role }` in plaintext localStorage.
+
+Recommendation:
+Do not cache `role` in localStorage. Fetch it exclusively from `/api/auth/me`. The
+brief loading delay before role is known is acceptable — AdminPanel already guards on
+`user?.role !== 'admin'` and can show a loading state while the server verifies.
+Alternatively: accept the risk as-is and document it, since server-side enforcement
+is correct. Given care-environment threat model, removing `role` from the cache is
+the right call.
+
+---
+
+### MEDIUM-2 — _decode_google_id_token does not verify JWT signature
+
+Severity:  MEDIUM
+Location:  backend/app/auth.py : lines 116–122
+Status:    Open (pre-existing)
+
+Description:
+`_decode_google_id_token` base64-decodes the JWT payload segment without verifying
+the cryptographic signature against Google's public keys. Practical risk is low
+because the token is obtained directly from Google's `/token` endpoint over HTTPS
+(not user-supplied), but the signature check is a required step in the OIDC spec and
+protects against token substitution if the exchange were somehow intercepted.
+
+Evidence:
+```python
+def _decode_google_id_token(id_token: str) -> dict:
+    seg = id_token.split(".")[1]
+    seg += "=" * (-len(seg) % 4)
+    return json.loads(base64.urlsafe_b64decode(seg))   # no signature verification
+```
+
+Recommendation:
+Use `google-auth` library (`pip install google-auth`) to verify the ID token properly:
+```python
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+claims = google_id_token.verify_oauth2_token(id_token, google_requests.Request(), GOOGLE_CLIENT_ID)
+```
+This verifies signature, `aud`, `iss`, and `exp` in one call. Add `google-auth` to
+requirements.txt and write the infra prompt for the pip install.
+
+---
+
+### MEDIUM-3 — No rate limit on access request creation
+
+Severity:  MEDIUM
+Location:  backend/app/auth.py : google_callback (lines 266–275)
+Status:    Open
+
+Description:
+An attacker with multiple Google accounts (or using disposable Gmail addresses) can
+flood the admin inbox with access request notifications. Each unique email triggers
+`send_access_request_email` once (the UNIQUE constraint prevents duplicate requests
+per email), but there's no throttle on how many distinct emails can request access
+in a given time window.
+
+Recommendation:
+Add a rate limit on the request creation path — e.g., max 5 new access requests per
+hour from any single IP, tracked in the existing `login_attempts` table or a new
+`request_attempts` counter. Simple and sufficient for warm.care's scale.
+
+---
+
+### LOW-1 — req_id path parameter accepts arbitrary strings — should be UUID-typed
+
+Severity:  LOW
+Location:  backend/app/admin.py : lines 81, 121
+Status:    Open
+
+Description:
+`req_id: str` accepts any string. While parameterized queries prevent SQL injection,
+an extremely long or malformed req_id wastes a DB lookup. UUID format validation
+would reject obviously invalid IDs before hitting the DB.
+
+Recommendation:
+Change to `req_id: uuid.UUID` in the FastAPI route signature. FastAPI will validate
+and reject non-UUID values with a 422 before the handler runs.
+
+---
+
+### LOW-2 — _oauth_states dict leaks memory on abandoned OAuth flows
+
+Severity:  LOW
+Location:  backend/app/auth.py : line 60
+Status:    Open (moot if HIGH-2 is fixed by moving to DB)
+
+Description:
+State entries added to `_oauth_states` in `google_login` are only removed in
+`google_callback` via `.pop()`. If a user initiates login but never completes the
+Google consent screen, the entry persists in memory until process restart. On
+warm.care's scale this is negligible, but is worth noting. Moot if HIGH-2 is
+resolved by moving state storage to the DB (rows can have a TTL and be swept on
+each callback).
+
+Recommendation:
+Resolve by fixing HIGH-2 (move to DB with TTL). If keeping in-memory, add a
+periodic sweep that removes entries where `expires < time.time()`.
+
+---
+
+### INFO-1 — role changes don't propagate to client until next server verify
+
+Severity:  INFO
+Location:  frontend/src/context/AuthContext.tsx : lines 90–93
+Status:    Accepted by design
+
+Description:
+On network error, AuthContext keeps the cached user (including role) rather than
+logging them out — correct behaviour for AT users on poor connections. This means
+if an admin's role is revoked server-side, their client continues showing the admin
+UI until the next successful `/api/auth/me` call. All server-side admin routes will
+correctly return 403 during this window.
+
+Recommendation:
+Document as accepted. Server-side enforcement is correct. The AT connection-resilience
+behaviour must not be removed. Consider adding a periodic re-verify interval (e.g.,
+every 5 minutes on page visibility change) so stale roles are cleared faster.
+
+---
+
+### INFO-2 — ARCHITECTURE.md does not exist
+
+Severity:  INFO
+Location:  project root
+Status:    Open
+
+Description:
+The startup sequence for all agents requires reading ARCHITECTURE.md. It does not
+exist. Agents fall through silently. Builder should create it to document system
+boundaries, auth flow, DB schema ownership, and the threat model.
+
+---
+
+## Security review summary — 2026-05-12
+
+| # | Severity | Finding | Pre-existing? |
+|---|----------|---------|--------------|
+| HIGH-1 | HIGH | password_login discards session cookie | Yes |
+| HIGH-2 | HIGH | _oauth_states in-memory: breaks on 2-worker deploy | Yes, now confirmed |
+| MEDIUM-1 | MEDIUM | role in localStorage cache: UI bypass from shared device | New |
+| MEDIUM-2 | MEDIUM | Google ID token signature not verified | Yes |
+| MEDIUM-3 | MEDIUM | No rate limit on access request creation | New |
+| LOW-1 | LOW | req_id not UUID-typed | New |
+| LOW-2 | LOW | _oauth_states memory leak | Yes |
+| INFO-1 | INFO | Role changes need server round-trip to propagate | By design |
+| INFO-2 | INFO | ARCHITECTURE.md missing | Yes |
+
+**No CRITICAL findings.** No new auth bypass or data exposure introduced by this PR.
+The two HIGHs are pre-existing and should be the Builder's next targets.

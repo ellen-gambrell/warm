@@ -126,15 +126,16 @@ follows this convention.
   /admin route → AdminPanel (pending queue, approve/deny, 64px targets). Login reads ?error= params.
   DB migrations applied on startup. CI green. Health 200 OK.
 
-[Builder 2026-05-12] PENDING DEPLOY — security hardening + admin badge (PR #6)
-  HIGH-1: password_login now returns JSONResponse with cookie — password auth fixed.
-  HIGH-2: _oauth_states replaced with auth_states DB table — Google OAuth cross-worker safe.
-  MEDIUM-1: role removed from localStorage cache — defaults to 'user' until server confirms.
-  MEDIUM-2: google-auth library verifies ID token signature (aud/iss/exp/sig).
-  MEDIUM-3: 10 request/24h rate limit on access request creation.
-  LOW-1: req_id: uuid.UUID on admin routes — 422 on non-UUID before DB hit.
-  INFO-2: ARCHITECTURE.md created.
-  Frontend: Admin tile added to Home (admin-only, live pending-count badge from /api/admin/pending-count).
+[Builder 2026-05-13] PENDING DEPLOY — security hardening + polish (PR #6, branch claude/cool-maxwell-30b110)
+  Security (HIGH-1/2, MEDIUM-1/2/3, LOW-1/2, INFO-2): all 2026-05-12 findings resolved.
+    password_login cookie, auth_states DB, role removed from cache, google-auth sig verify,
+    access request rate limit, uuid.UUID path params, ARCHITECTURE.md created.
+  Admin: pending-count badge on Home tile (admin-only, live count from /api/admin/pending-count).
+  AT: AdminPanel loading state announced, badge ARIA fixed, status tag aria-label added.
+  Login: pending_approval uses info style (muted/role=status), not error red. Copy improved.
+  Chat: financial context disclosure pill rendered when Monarch data used in Gemini prompt.
+  auth.py: get_profile now returns role (consistent with get_me).
+  No infra steps required — google-auth already in venv; requirements.txt pin handles CI.
 
 ---
 

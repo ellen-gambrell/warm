@@ -842,7 +842,51 @@ The two HIGHs are pre-existing and should be the Builder's next targets.
 
 ---
 
-## [Builder 2026-05-12] Overnight security fixes — complete ✅
+## [Builder 2026-05-13] Session end — handoff state
+
+**Branch:** `claude/cool-maxwell-30b110`
+**PR:** #6 — "Steady the helm" — open, not yet merged
+**Build:** TypeScript clean. Python imports clean. No new pip packages needed beyond requirements.txt.
+
+### What's in PR #6 (complete)
+
+Security hardening:
+- HIGH-1: password_login cookie fixed (JSONResponse)
+- HIGH-2: auth_states DB table replaces in-memory _oauth_states dict
+- MEDIUM-1: role removed from localStorage cache
+- MEDIUM-2: google-auth signature verification
+- MEDIUM-3: 10 access requests/24h rate limit
+- LOW-1: uuid.UUID path params on admin routes
+- INFO-2: ARCHITECTURE.md created
+
+Polish:
+- Home: admin-only 🔑 tile with live pending-count badge
+- AdminPanel: loading announced, badge ARIA fixed, status tags labeled
+- Login: pending_approval uses info style (not red error); copy improved
+- ChatView: 💰 financial context disclosure pill on Monarch-assisted replies
+- auth.py get_profile: now returns role (consistency with get_me)
+- CLAUDE.md: flags updated, open questions cleaned up
+
+### For next agent
+
+**Next immediate step:** merge PR #6. No infra steps required.
+
+**After merge:** the user (ellengambrell@gmail.com) can approve/deny access
+requests from warm.care/admin. New users log in via Google → request flow.
+
+**Open decisions (need Ellen):**
+- Gemini + financial PII policy (add UI disclosure or restrict Monarch injection)
+- Font/text size validation on Margaret's device
+- What Margaret is actually using day-to-day
+- Supporter invite status
+
+**Open agent work (no human input needed):**
+- AT Specialist: full Switch Control + Voice Control pass on AdminPanel and Login
+- Director: copy review on admin panel headings and error messages
+
+---
+
+## [Builder 2026-05-13] Overnight security fixes — complete ✅
 
 All code-addressable findings from the 2026-05-12 security review shipped.
 

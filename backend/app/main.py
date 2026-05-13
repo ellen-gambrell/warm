@@ -29,6 +29,7 @@ from .supporter_auth import router as supporter_router
 from .menu import router as menu_router
 from .monarch import router as monarch_router
 from .reminders import router as reminders_router
+from .admin import router as admin_router
 
 
 _IS_PROD = os.environ.get("ENVIRONMENT", "").lower() in ("production", "prod")
@@ -90,6 +91,7 @@ app.include_router(supporter_router)
 app.include_router(menu_router)
 app.include_router(monarch_router)
 app.include_router(reminders_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/health")

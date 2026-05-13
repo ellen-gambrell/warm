@@ -32,7 +32,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from .database import get_db
-from .email_service import send_password_set_email
+from .email_service import send_access_request_email, send_password_set_email
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
@@ -149,11 +149,16 @@ def get_me(current: dict = Depends(get_current_user)):
     db = get_db()
     try:
         user = db.execute(
-            "SELECT id, name, email FROM users WHERE id = ?", (user_id,)
+            "SELECT id, name, email, role FROM users WHERE id = ?", (user_id,)
         ).fetchone()
         if not user:
             raise HTTPException(404, "User not found.")
-        return {"id": user["id"], "name": user["name"], "email": user["email"]}
+        return {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "role": user["role"],
+        }
     finally:
         db.close()
 
@@ -232,6 +237,8 @@ def google_callback(code: str, state: str, response: Response):
         return RedirectResponse("/?error=auth_failed")
 
     claims = _decode_google_id_token(resp.json().get("id_token", ""))
+    if not claims.get("email_verified"):
+        return RedirectResponse("/?error=auth_failed")
     email  = claims.get("email", "").lower()
     name   = claims.get("name") or claims.get("given_name") or email.split("@")[0]
 
@@ -248,17 +255,24 @@ def google_callback(code: str, state: str, response: Response):
         if row:
             user_id, user_name = row["id"], row["name"]
         else:
-            # Only allow a new primary user if no primary user exists yet (first-run).
-            # After first registration, warm.care is single-user — no open signup.
-            existing_count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-            if existing_count > 0:
-                return RedirectResponse("/?error=auth_failed")
-            user_id, user_name = str(uuid.uuid4()), name
-            db.execute(
-                "INSERT INTO users (id, name, email) VALUES (?, ?, ?)",
-                (user_id, user_name, email),
-            )
-            db.commit()
+            req = db.execute(
+                "SELECT status FROM user_requests WHERE email = ?", (email,)
+            ).fetchone()
+            if req:
+                if req["status"] == "pending":
+                    return RedirectResponse("/?error=pending_approval")
+                else:  # denied
+                    return RedirectResponse("/?error=auth_failed")
+            else:
+                req_id = str(uuid.uuid4())
+                db.execute(
+                    "INSERT INTO user_requests (id, name, email, requested_at, status) "
+                    "VALUES (?, ?, ?, ?, 'pending')",
+                    (req_id, name, email, int(time.time())),
+                )
+                db.commit()
+                send_access_request_email(name, email)
+                return RedirectResponse("/?error=pending_approval")
     finally:
         db.close()
 

@@ -6,6 +6,60 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## Infra Needed — 2026-05-12 — admin roles + user request queue
+
+**Trigger:** PR from branch `claude/cool-maxwell-30b110`. Merge to main first, then run this.
+
+**No new pip packages.** All imports are stdlib (`json`, `uuid`, `time`) + existing FastAPI/SQLite.
+
+**One env var to add before restarting:**
+
+```bash
+# Add ADMIN_EMAIL to the warm.care .env on Hetzner
+ssh hetzner "echo 'ADMIN_EMAIL=ellengambrell@gmail.com' >> /home/deploy/warmcare/.env"
+
+# Verify it landed
+ssh hetzner "grep ADMIN_EMAIL /home/deploy/warmcare/.env"
+```
+
+**The code deploy (GitHub Actions handles this automatically on merge to main):**
+- rsyncs backend to `/home/deploy/warmcare/`
+- restarts `warmcare.service`
+
+**If doing a manual deploy instead:**
+```bash
+cd /Users/ellengambrell/projects/warmcare
+git push  # triggers GitHub Actions — prefer this path
+
+# Or manual:
+rsync -avz --delete \
+  --exclude='.git' --exclude='frontend/' --exclude='__pycache__' \
+  --exclude='.env' --exclude='*.db' --exclude='venv/' \
+  ./ hetzner:/home/deploy/warmcare/
+ssh hetzner 'sudo systemctl restart warmcare'
+```
+
+**Verify:**
+```bash
+curl -si https://warm.care/api/health | head -2
+# expect: HTTP/2 200
+
+ssh hetzner 'journalctl -u warmcare -n 20 --no-pager'
+# expect: no import errors; "Application startup complete"
+```
+
+**What to look for in logs after restart:**
+- `[email_service] WARNING: AWS_ACCESS_KEY_ID not set` would be wrong — SES creds should already be in .env
+- No `ModuleNotFoundError` — no new packages needed
+- `Uvicorn running on 127.0.0.1:8002` confirms clean startup
+
+**DB migration is automatic** — `init_db()` runs on startup and will:
+1. Add `users.role` column (ALTER TABLE, try/except — safe on existing DB)
+2. `UPDATE users SET role='admin' WHERE email='ellengambrell@gmail.com'`
+3. Create `user_requests` and `user_events` tables (IF NOT EXISTS — safe)
+
+---
+
 ## Builder: "Now" backlog complete — 2026-05-06
 
 [Builder] All four "Now" backlog items shipped. Build clean (zero TypeScript errors).
@@ -462,3 +516,29 @@ Builder: find `role_label` display in `frontend/src/components/SupporterDashboar
 ### Open for Director Review
 - V1 access profile scope: recommend Stylus + Voice for V1 (Margaret's profile), defer Sip-and-Puff and Eye Gaze to V2 — but architecture must support them from day one
 - Stack decision required before Builder can begin
+
+---
+
+## [Builder 2026-05-12] Admin roles + user request queue — commit 536e819
+
+Shipped. All verification steps passed.
+
+**What changed:**
+- `users.role` (admin|user) — ellengambrell@gmail.com seeded as admin on startup
+- `user_requests` table — pending/approved/denied access queue
+- `user_events` table — admin audit log with indexes
+- `google_callback` — single-user guard replaced with request flow; unverified Google email claim now rejected
+- `GET /api/admin/requests` — list all requests, newest first
+- `GET /api/admin/pending-count` — `{ count: N }` for frontend badge
+- `POST /api/admin/requests/{id}/approve` — idempotent; inserts user, sends welcome email, logs event
+- `POST /api/admin/requests/{id}/deny` — sends denial email, logs event
+- `ADMIN_EMAIL` env var added to `.env.example`
+
+**Infra needed before this is live:**
+- Add `ADMIN_EMAIL=ellengambrell@gmail.com` to `/home/deploy/warmcare/backend/.env` on Hetzner
+- Deploy: standard rsync + systemd restart (`warmcare.service`)
+
+**Gates remaining:**
+[Security: review] — new auth path (google_callback request flow), new admin routes, role column
+[AT Specialist: review] — no UI changes in this PR; no AT impact expected, but flag if /admin frontend is built
+[Director: copy review needed] — pending_approval error state copy on the frontend (not yet built)

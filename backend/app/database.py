@@ -176,6 +176,31 @@ def init_db() -> None:
             enabled          INTEGER NOT NULL DEFAULT 1,
             created_at       INTEGER NOT NULL
         );
+
+        -- ── Access requests ───────────────────────────────────────────────────
+
+        CREATE TABLE IF NOT EXISTS user_requests (
+            id           TEXT PRIMARY KEY,
+            name         TEXT NOT NULL,
+            email        TEXT NOT NULL UNIQUE,
+            requested_at INTEGER NOT NULL,
+            status       TEXT NOT NULL DEFAULT 'pending',
+            reviewed_at  INTEGER,
+            reviewed_by  TEXT
+        );
+
+        -- ── Event log ─────────────────────────────────────────────────────────
+
+        CREATE TABLE IF NOT EXISTS user_events (
+            id         TEXT PRIMARY KEY,
+            user_id    TEXT NOT NULL,
+            actor_type TEXT NOT NULL DEFAULT 'user',
+            event      TEXT NOT NULL,
+            meta       TEXT,
+            ts         INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_user_events_user  ON user_events(user_id, ts);
+        CREATE INDEX IF NOT EXISTS idx_user_events_event ON user_events(event, ts);
     """)
     conn.commit()
 
@@ -193,5 +218,19 @@ def init_db() -> None:
         conn.commit()
     except Exception:
         pass  # Column already exists
+
+    # Migrate: add role column to users
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
+    # Seed: promote ellengambrell@gmail.com to admin (safe to re-run)
+    conn.execute("""
+        UPDATE users SET role = 'admin'
+        WHERE email = 'ellengambrell@gmail.com' AND role = 'user'
+    """)
+    conn.commit()
 
     conn.close()

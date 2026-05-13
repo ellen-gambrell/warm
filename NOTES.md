@@ -2,6 +2,19 @@
 
 All agents read and write here. Tag entries clearly.
 
+---
+
+## Infra 2026-05-13 — overnight: seed bug fix in progress
+
+**Agent:** Infra · **Status:** PR open, awaiting merge
+**Touches:** `backend/app/database.py` only — no other files in flight.
+
+Root cause found during PR #3/#4 deploy: `init_db()` seed was `UPDATE`-only, silently no-ops if
+`ellengambrell@gmail.com` has no row yet. Fixed with `INSERT OR IGNORE` + `UPDATE`. PR titled
+"All hands on deck". No other warm.care work claimed tonight.
+
+---
+
 > **Infrastructure note (2026-05-03):** Entries below predate the migration to Hetzner (completed 2026-05-02). All references to GreenGeeks paths, Passenger restart (`touch ~/shimmerchat/tmp/restart.txt`), cPanel virtualenvs, and `~/warm.care/` server paths are historical. Current infra: Hetzner 5.78.110.203, systemd `warmcare.service`, backend at `/home/deploy/warmcare/`, frontend at `/var/www/warm.care/`. See program/playbook.md.
 
 ---

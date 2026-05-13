@@ -226,10 +226,16 @@ def init_db() -> None:
     except Exception:
         pass  # Column already exists
 
-    # Seed: promote ellengambrell@gmail.com to admin (safe to re-run)
+    # Seed: ensure ellengambrell@gmail.com exists as admin (idempotent)
+    # INSERT OR IGNORE creates the row if absent; UPDATE promotes if somehow demoted.
+    # The UPDATE-only approach was a bug — it silently no-ops if the row doesn't exist yet.
+    conn.execute("""
+        INSERT OR IGNORE INTO users (id, name, email, role)
+        VALUES (lower(hex(randomblob(16))), 'Ellen', 'ellengambrell@gmail.com', 'admin')
+    """)
     conn.execute("""
         UPDATE users SET role = 'admin'
-        WHERE email = 'ellengambrell@gmail.com' AND role = 'user'
+        WHERE email = 'ellengambrell@gmail.com'
     """)
     conn.commit()
 

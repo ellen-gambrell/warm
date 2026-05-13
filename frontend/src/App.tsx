@@ -23,6 +23,8 @@ import MenuView from './components/MenuView'
 import NavBar from './components/NavBar'
 import AdminPortal from './components/AdminPortal'
 import AdminPanel from './components/AdminPanel'
+import BillsView from './components/BillsView'
+import Privacy from './components/Privacy'
 
 /**
  * SPA navigation — pushes to browser history AND updates the NavContext stack
@@ -128,6 +130,9 @@ function AppShell() {
     return <SetPassword token={token} />
   }
 
+  // Privacy policy — public, no auth required
+  if (path === '/privacy') return <Privacy />
+
   if (isLoading) return null
   if (!user) return <Login />
   if (!isOnboarded) return <Onboarding />
@@ -141,6 +146,7 @@ function AppShell() {
   else if (path === '/money')      view = <MoneyView />
   else if (path === '/drive')      view = <Drive />
   else if (path === '/gmail')      view = <GmailView />
+  else if (path === '/bills')      view = <BillsView />
   else if (path === '/settings')   view = <Settings />
   else if (path === '/check-run')  view = <CheckRunView />
   else if (path === '/reminders')  view = <RemindersView />

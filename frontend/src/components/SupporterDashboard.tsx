@@ -230,7 +230,7 @@ export default function SupporterDashboard() {
             <CardsView />
           </>
         ) : canEditMenu ? (
-          <MenuEditor />
+          <MenuEditor primaryName={primaryName} />
         ) : (
           /* Roles that can see the menu but can't edit it */
           <div style={{ textAlign: 'center', padding: '60px 24px' }}>

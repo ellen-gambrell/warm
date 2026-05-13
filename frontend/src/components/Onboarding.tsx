@@ -144,6 +144,7 @@ export default function Onboarding() {
         </div>
 
         <p style={S.muted}>© 2026 Quantum Moon LLC. All rights reserved.</p>
+        <p style={S.muted}><a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy policy</a></p>
       </div>
     )
   }
@@ -218,6 +219,7 @@ export default function Onboarding() {
         </button>
 
         <p style={S.muted}>© 2026 Quantum Moon LLC. All rights reserved.</p>
+        <p style={S.muted}><a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy policy</a></p>
       </div>
     )
   }
@@ -259,6 +261,7 @@ export default function Onboarding() {
       </div>
 
       <p style={S.muted}>© 2026 Quantum Moon LLC. All rights reserved.</p>
+      <p style={S.muted}><a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy policy</a></p>
     </div>
   )
 }

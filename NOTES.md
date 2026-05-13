@@ -4,6 +4,163 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## [Builder 2026-05-13] /privacy page — complete
+
+Public `/privacy` route added for Google OAuth consent screen requirement.
+
+**Files:**
+- `frontend/src/components/Privacy.tsx` — new component, full policy text, NavBar, legal footer
+- `frontend/src/App.tsx` — public route added before auth check
+- Footer "Privacy policy" link added to: Home, Settings, BillsView, GmailView, Drive, Login, Onboarding
+
+**Build:** zero TypeScript errors
+**Commit:** 80ddcc0
+
+---
+
+## [Builder 2026-05-13] Bills feature — code-complete, pending review
+
+**Branch:** `claude/elated-black-78a433`
+**Status:** Committed, build clean (zero TypeScript errors)
+
+### What was built
+
+**Backend (`backend/app/bills.py`, `backend/app/database.py`, `backend/app/main.py`)**
+- `bills` table: `id, user_id, category, company_name, phone_number, customer_number, sender_email, last_bill_seen_at, created_at, updated_at`. Migration uses `CREATE TABLE IF NOT EXISTS` (no separate `ALTER TABLE` needed — new table). Index on `user_id`.
+- 5 routes: `GET /api/bills`, `POST /api/bills`, `PATCH /api/bills/{id}`, `DELETE /api/bills/{id}`, `GET /api/bills/check`
+- `GET /api/bills/check`: reads Gmail token using same `_decrypt`/`_encrypt`/`_google_cfg` from `connections.py`. Queries `from:{sender_email} after:{epoch}` for each bill with a sender_email. Updates `last_bill_seen_at` after each check. Returns `[]` silently if Gmail not connected (no raise).
+- PATCH uses `model_fields_set` to distinguish "not provided" from explicit `null` (allows clearing fields).
+- Categories validated: electric, gas, water, phone, internet, other.
+
+**Frontend (`frontend/src/components/BillsView.tsx`, `frontend/src/components/Home.tsx`, `frontend/src/App.tsx`)**
+- `BillsView.tsx`: two sections (My Bills, Recent Bills). Flat layout, no tabs.
+  - `BillCard`: phone as `<a href="tel:...">` with `aria-label="Call {company}"`. Copy button for customer number — static "Copied" state on click (no auto-dismiss). New bill badge with aria-label. Edit/Delete buttons. All 64px+ for primary actions.
+  - `BillForm`: inline form (category radio group, company name, phone, customer number, sender email). No wizard. Save 64px.
+  - Recent Bills section: only shown if Gmail connected AND at least one bill has sender_email. Each row taps to `/gmail?message={id}`.
+  - Gmail-not-connected notice shown only if bills have sender_email configured.
+  - Empty state: "No bills added yet." — not blank.
+- `Home.tsx`: Bills tile added after Reminders (position 4), icon 🧾, color #5c8fc2. Badge on mount from `/api/bills/check` (after checking `/api/connections/status` — skips if Gmail not connected). Badge cleared on tile click. All existing shortcut tiles now have `aria-label` for badge state.
+- `App.tsx`: `/bills` route added, `BillsView` imported.
+
+### Copy strings (for Director review)
+
+[Director: copy review needed]
+- Tile label: "Bills"
+- Page heading: "Bills"
+- Page subtitle: "Your accounts and contact info, in one place."
+- Add button: "+ Add a bill"
+- Form heading (add): "Add a bill"
+- Form heading (edit): "Edit {company_name}"
+- Category field label: "Category"
+- Company name field label: "Company name"
+- Phone field label: "Phone number"
+- Customer number field label: "Customer number"
+- Sender email field label: "Bill sender email"
+- Sender email helper: "Add this to detect new bills in Gmail."
+- My Bills section heading: "My Bills"
+- Recent Bills section heading: "Recent Bills"
+- Empty state: "No bills added yet."
+- No recent emails: "No recent bill emails found."
+- Gmail not connected: "Connect Gmail in Settings to see recent bills."
+- Copy button: "Copy" / "Copied" (static state change on click)
+- New badge: "New"
+- Loading state: "Loading bills…"
+- Save button: "Save" / "Saving…"
+- Cancel button: "Cancel"
+- Delete confirm: window.confirm(`Delete {company_name}?`)
+
+[AT Specialist: review]
+- Phone links: `<a href="tel:...">` with `aria-label="Call {company_name}"`. Min-height 64px. Primary action on card.
+- Copy button: `aria-label="Copy customer number for {company_name}"`. Min-height 64px.
+- Edit button: `aria-label="Edit {company_name}"`. Min-height 64px.
+- Delete button: `aria-label="Delete {company_name}"`. Min-height 64px, min-width 64px.
+- New badge: `aria-label="New bill from {company_name}"`.
+- Category radio group: `<fieldset>` / `<legend>` / `<input type="radio">` semantics. Visual-only selected state; underlying radio is accessible. Min-height 44px per label.
+- Scan order per card: heading → phone (call link) → customer number block → copy button → edit → delete.
+- Both sections labeled with `<section aria-label="...">`.
+- Form sections: standard `<label>` wrapping.
+- Tile in Home: `aria-label` includes badge count ("Bills — 3 new bills").
+- Recent bill rows: `aria-label` includes company name and subject.
+- Empty states: present, human copy.
+- No timed UI anywhere.
+
+---
+
+## [Builder 2026-05-13] Fix hardcoded "Margaret" + PWA install prompt
+
+**Branch:** `claude/elated-black-78a433`
+**Status:** Committed, build clean (zero TypeScript errors)
+
+### Task 1 — Dynamic greeting and supporter copy
+
+Root cause: `Home.tsx` was using `profile.name` (from localStorage/onboarding) for the greeting rather than `user.name` (from Google OAuth via AuthContext). If stale localStorage existed with "Margaret" as the profile name, any logged-in user would see "Hi, Margaret."
+
+Fix: `Home.tsx` now derives the greeting name as `user?.name?.split(' ')[0] || profile.name || 'there'` — server-authoritative first name takes precedence.
+
+Additional hardcoded "Margaret" occurrences fixed:
+- `SupporterLogin.tsx` — `invite_expired` error message: "Please ask Margaret to send a new one" → "Please ask the account holder to send a new one"
+- `SupporterLogin.tsx` — "Are you Margaret?" → "Are you the account holder?"
+- `MenuEditor.tsx` — Success toast "Margaret can see it now" → uses `primaryName` prop (passed from `SupporterDashboard` which fetches the real name from `/api/auth/primary`)
+
+Occurrences left unchanged (code comments, not user-facing):
+- `App.tsx` — comment: `// ── Margaret's app shell`
+- `ProfileContext.tsx` — comment: `// e.g. Ellen → Margaret on same browser`
+- `types.ts` — comment: `// Limited touch, stylus — Margaret's profile`
+- `MenuView.tsx` — file-level comment
+
+### Task 2 — PWA install prompt
+
+Added a dismissable install banner to `Home.tsx` only. Shown when the app is running in a browser (not installed as a PWA). Detection: `window.navigator.standalone !== true` AND `!matchMedia('(display-mode: standalone)').matches`.
+
+- Banner appears between the greeting and the tile grid
+- Heading: "Add to your home screen"
+- Body: Safari-specific instructions (Share button → Add to Home Screen)
+- Dismiss button: 64px min-height, aria-label="Dismiss install prompt", speakable
+- Dismissed state stored in `localStorage` key `warm_pwa_prompt_dismissed` — never reappears
+- No timed dismiss (hard constraint respected)
+- All colors via CSS custom properties — works across all 4 themes
+- Only on Home screen — no other route shows this
+
+[Director: copy review needed] — PWA prompt heading and body copy. Currently: "Add to your home screen" / "In Safari, tap the Share button at the bottom of the screen, then tap 'Add to Home Screen.'" Dismiss button label: "Dismiss". All plain language, no jargon.
+
+[AT Specialist: review] — PWA install prompt. Banner uses `role="region"` with `aria-label="Add to home screen"`. Dismiss button has `aria-label="Dismiss install prompt"`. Min-height 64px. No timed dismiss. Not a modal. Scan order: heading → body text → dismiss button.
+
+---
+
+## Infra Needed — Gmail/Drive OAuth connections redirect URI fix
+
+**Trigger:** Merge branch `claude/elated-black-78a433` to main, then complete the steps below.
+
+**Root cause:** `connections.py` was falling back to `GOOGLE_AUTH_REDIRECT_URI` (the login callback at `/api/auth/google/callback`) when building the OAuth URL for Gmail/Drive connections. The connections callback handler is at `/api/connections/google/callback`. Google was redirecting back to the wrong endpoint, causing `auth_failed`. Fixed: `_google_cfg()` now reads `GOOGLE_CONNECTIONS_REDIRECT_URI` exclusively — no fallback to the login env var.
+
+**Step 1 — Google Cloud Console**
+
+Add the connections callback as an authorized redirect URI:
+- Go to Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID
+- Under **Authorized redirect URIs**, add: `https://warm.care/api/connections/google/callback`
+- Save
+
+**Step 2 — Hetzner .env**
+
+```bash
+# Add the new env var to the backend .env on Hetzner
+ssh hetzner "echo 'GOOGLE_CONNECTIONS_REDIRECT_URI=https://warm.care/api/connections/google/callback' >> /home/deploy/warmcare/backend/.env"
+
+# Verify it landed
+ssh hetzner "grep GOOGLE_CONNECTIONS_REDIRECT_URI /home/deploy/warmcare/backend/.env"
+```
+
+**Step 3 — Deploy**
+
+Standard rsync + systemd restart (GitHub Actions handles this on push to main).
+
+**Verify:**
+- In Settings → Connections → Gmail → click Connect
+- Should redirect to Google consent screen and return to `/settings?connected=gmail`
+- Repeat for Drive
+
+---
+
 ## [Builder 2026-05-13] PR #7 "Fair winds" — deployed ✅
 
 **Branch:** `feature/error-states-profile-onboarding-cards`

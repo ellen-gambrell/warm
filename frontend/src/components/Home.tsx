@@ -7,6 +7,7 @@ const SHORTCUTS = [
   { id: 'menu',      label: "Today's Menu",  icon: '🍽️', color: '#e8a045',               href: '/menu' },
   { id: 'chat',      label: 'Ask anything',  icon: '💬', color: '#7b6ef6',               href: '/chat' },
   { id: 'reminders', label: 'Reminders',     icon: '⏰', color: '#e07858',               href: '/reminders' },
+  { id: 'bills',     label: 'Bills',         icon: '🧾', color: '#5c8fc2',               href: '/bills' },
   { id: 'gmail',     label: 'Gmail',         icon: '📧', color: '#4285f4',               href: '/gmail' },
   { id: 'drive',     label: 'Google Drive',  icon: '📁', color: '#34a853',               href: '/drive' },
   { id: 'money',     label: 'Venmo',         icon: '💸', color: '#3d95ce',               href: '/money' },
@@ -89,7 +90,9 @@ function CardDetail({ card, onClose }: { card: CustomCard; onClose: () => void }
 export default function Home() {
   const { profile } = useProfile()
   const { user, logout } = useAuth()
-  const name = profile.name || 'there'
+  // Use the server-authoritative name from Google OAuth. Fall back to the
+  // locally-stored profile name (set during onboarding) or a generic greeting.
+  const name = user?.name?.split(' ')[0] || profile.name || 'there'
   const isAdmin = user?.role === 'admin'
 
   // Admin: fetch pending request count to show a badge on the Admin tile.
@@ -102,6 +105,46 @@ export default function Home() {
       .then(data => { if (data) setPendingCount(data.count) })
       .catch(() => {})
   }, [isAdmin])
+
+  // ── PWA install prompt ────────────────────────────────────────────────────────
+  // Show a manual guide for iOS Safari users who haven't installed the PWA yet.
+  // Dismissed state persists in localStorage — never auto-dismisses.
+  const PWA_DISMISSED_KEY = 'warm_pwa_prompt_dismissed'
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+  useEffect(() => {
+    if (localStorage.getItem(PWA_DISMISSED_KEY)) return
+    const isStandalone =
+      ('standalone' in window.navigator && (window.navigator as Navigator & { standalone: boolean }).standalone === true) ||
+      window.matchMedia('(display-mode: standalone)').matches
+    if (!isStandalone) setShowInstallPrompt(true)
+  }, [])
+  function dismissInstallPrompt() {
+    localStorage.setItem(PWA_DISMISSED_KEY, '1')
+    setShowInstallPrompt(false)
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Bills badge: total new bills count from /api/bills/check (only if Gmail connected)
+  // Cleared when user opens BillsView (via clearBillsBadge callback passed as prop).
+  const [billsNewCount, setBillsNewCount] = useState(0)
+
+  useEffect(() => {
+    // Check Gmail connection first — skip if not connected (bills/check returns [] silently,
+    // but we avoid the round-trip and use the connection status as a gate).
+    fetch('/api/connections/status', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(status => {
+        if (status?.gmail) {
+          return fetch('/api/bills/check', { credentials: 'include' })
+            .then(r => r.ok ? r.json() : [])
+            .then((results: Array<{ new_count: number }>) => {
+              const total = results.reduce((sum: number, r) => sum + (r.new_count || 0), 0)
+              setBillsNewCount(total)
+            })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const [cards, setCards] = useState<CustomCard[]>([])
   const [activeCard, setActiveCard] = useState<CustomCard | null>(null)
@@ -138,6 +181,52 @@ export default function Home() {
         </h1>
       </div>
 
+      {/* ── PWA install prompt ── */}
+      {showInstallPrompt && (
+        <div
+          role="region"
+          aria-label="Add to home screen"
+          style={{
+            background: 'var(--color-surface)',
+            border: '2px solid var(--color-border)',
+            borderRadius: 20,
+            padding: '20px 20px 16px',
+            marginBottom: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <div>
+            <p style={{ margin: '0 0 6px', fontSize: 'var(--fs-base)', fontWeight: 700, color: 'var(--color-text)' }}>
+              Add to your home screen
+            </p>
+            <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+              In Safari, tap the Share button at the bottom of the screen, then tap &ldquo;Add to Home Screen.&rdquo;
+            </p>
+          </div>
+          <button
+            onClick={dismissInstallPrompt}
+            aria-label="Dismiss install prompt"
+            style={{
+              alignSelf: 'flex-start',
+              minHeight: 64,
+              padding: '0 24px',
+              borderRadius: 14,
+              border: '2px solid var(--color-border)',
+              background: 'transparent',
+              color: 'var(--color-text-muted)',
+              fontSize: 'var(--fs-base)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div
         style={{
           display: 'grid',
@@ -147,14 +236,24 @@ export default function Home() {
       >
         {SHORTCUTS.map((s) => {
           const isExternal = s.href.startsWith('http')
+          const badgeCount = s.id === 'bills' ? billsNewCount : 0
+          const ariaLabel = badgeCount > 0
+            ? `${s.label} — ${badgeCount} new bill${badgeCount !== 1 ? 's' : ''}`
+            : s.label
           return (
             <a
               key={s.id}
               href={s.href}
               target={isExternal ? '_blank' : undefined}
               rel={isExternal ? 'noopener noreferrer' : undefined}
-              onClick={isExternal ? undefined : (e) => { e.preventDefault(); navigate(s.href) }}
+              onClick={isExternal ? undefined : (e) => {
+                e.preventDefault()
+                if (s.id === 'bills') setBillsNewCount(0)
+                navigate(s.href)
+              }}
+              aria-label={ariaLabel}
               style={{
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -174,6 +273,30 @@ export default function Home() {
               onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = s.color)}
               onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
             >
+              {badgeCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 12,
+                    background: s.color,
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderRadius: 99,
+                    minWidth: 22,
+                    height: 22,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 6px',
+                    lineHeight: 1,
+                  }}
+                >
+                  {badgeCount}
+                </span>
+              )}
               <span style={{ fontSize: 36 }} role="img" aria-hidden="true">{s.icon}</span>
               <span style={{ fontSize: 'var(--fs-base)', fontWeight: 600, textAlign: 'center' }}>{s.label}</span>
             </a>
@@ -297,6 +420,9 @@ export default function Home() {
           The views, thoughts, and opinions expressed on this site are solely my own and do not represent those of my employer, KPMG.
         </p>
         <p style={{ margin: '4px 0 0' }}>© 2026 Quantum Moon LLC. All rights reserved.</p>
+        <p style={{ margin: '4px 0 0' }}>
+          <a href="/privacy" style={{ color: 'var(--color-text-muted)', textDecoration: 'underline' }}>Privacy policy</a>
+        </p>
       </footer>
     </div>
   )

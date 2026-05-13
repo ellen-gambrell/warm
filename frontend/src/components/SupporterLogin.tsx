@@ -108,7 +108,7 @@ export default function SupporterLogin() {
     no_account:      'No supporter account found for that Google address.',
     revoked:         'Your access has been revoked.',
     expired:         'Your access has expired.',
-    invite_expired:  'That invitation has expired. Please ask Margaret to send a new one.',
+    invite_expired:  'That invitation has expired. Please ask the account holder to send a new one.',
     auth_failed:     'Sign-in failed. Please try again.',
   }
 
@@ -154,7 +154,7 @@ export default function SupporterLogin() {
           </a>
 
           <p style={{ textAlign: 'center', fontSize: 16, color: 'var(--color-text-muted)', margin: '8px 0 0' }}>
-            Are you Margaret?{' '}
+            Are you the account holder?{' '}
             <button
               onClick={() => navigate('/')}
               style={{ background: 'none', border: 'none', color: 'var(--color-accent)', fontSize: 16, fontWeight: 600, cursor: 'pointer', padding: 0 }}

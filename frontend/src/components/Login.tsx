@@ -304,6 +304,7 @@ export default function Login() {
       </div>
 
       <p style={S.muted}>© 2026 Quantum Moon LLC. All rights reserved.</p>
+      <p style={S.muted}><a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy policy</a></p>
     </div>
   )
 }

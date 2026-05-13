@@ -51,7 +51,11 @@ function formatPublished(iso: string | null): string {
   return isToday ? `Updated today at ${time}` : `Updated ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${time}`
 }
 
-export default function MenuEditor() {
+interface MenuEditorProps {
+  primaryName?: string
+}
+
+export default function MenuEditor({ primaryName = 'the account holder' }: MenuEditorProps) {
   const [menuData, setMenuData] = useState<MenuData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -135,7 +139,7 @@ export default function MenuEditor() {
     try {
       const r = await fetch('/api/supporter/menu/publish', { method: 'POST', credentials: 'include' })
       if (!r.ok) throw new Error()
-      setPublishedMsg('Menu updated! Margaret can see it now. ✓')
+      setPublishedMsg(`Menu updated! ${primaryName} can see it now. ✓`)
       await fetchMenu()
     } catch {
       setPublishedMsg('Could not publish. Please try again.')

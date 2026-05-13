@@ -146,6 +146,23 @@ export default function Login() {
       .catch(() => setMode('google'))
   }, [])
 
+  // Read ?error= from URL and show a human message.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (err === 'pending_approval') {
+      setError('Your request is pending review. You will receive an email when access is approved.')
+    } else if (err === 'auth_failed') {
+      setError('Sign-in failed. Contact the account holder if you need access.')
+    }
+    // Clear the error param from the URL so a refresh doesn't re-show it.
+    if (err) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('error')
+      window.history.replaceState(null, '', url.toString())
+    }
+  }, [])
+
   async function doPasswordLogin() {
     if (!email.trim() || !password) return
     setBusy(true); setError('')

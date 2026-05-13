@@ -22,6 +22,7 @@ import SupporterDashboard from './components/SupporterDashboard'
 import MenuView from './components/MenuView'
 import NavBar from './components/NavBar'
 import AdminPortal from './components/AdminPortal'
+import AdminPanel from './components/AdminPanel'
 
 /**
  * SPA navigation — pushes to browser history AND updates the NavContext stack
@@ -133,7 +134,8 @@ function AppShell() {
 
   // ── Authenticated screens — NavBar always rendered above the view ──
   let view: React.ReactNode
-  if (path === '/menu')            view = <MenuView />
+  if (path === '/admin')           view = <AdminPanel />
+  else if (path === '/menu')       view = <MenuView />
   else if (path === '/chat')       view = <ChatView />
   else if (path === '/gif')        view = <GifView />
   else if (path === '/money')      view = <MoneyView />

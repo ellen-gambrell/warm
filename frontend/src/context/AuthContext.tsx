@@ -26,6 +26,7 @@ export interface AuthUser {
   id: string
   name: string
   email: string
+  role: string
 }
 
 interface AuthContextValue {
@@ -53,7 +54,7 @@ function writeCache(user: AuthUser): void {
   // Only store non-sensitive display data — never store the JWT here
   localStorage.setItem(
     CACHE_KEY,
-    JSON.stringify({ id: user.id, name: user.name, email: user.email }),
+    JSON.stringify({ id: user.id, name: user.name, email: user.email, role: user.role }),
   )
 }
 
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/auth/me', { credentials: 'include' })
       if (res.ok) {
         const fresh = (await res.json()) as AuthUser
-        const updated: AuthUser = { id: fresh.id, name: fresh.name, email: fresh.email }
+        const updated: AuthUser = { id: fresh.id, name: fresh.name, email: fresh.email, role: fresh.role ?? 'user' }
         setUser(updated)
         writeCache(updated)
       } else {
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [reVerify])
 
   function login(profile: AuthUser) {
-    const user: AuthUser = { id: profile.id, name: profile.name, email: profile.email }
+    const user: AuthUser = { id: profile.id, name: profile.name, email: profile.email, role: profile.role ?? 'user' }
     writeCache(user)
     setUser(user)
   }

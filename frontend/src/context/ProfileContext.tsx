@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { UserProfile } from '../types'
 import { DEFAULT_PROFILE } from '../types'
+import { useAuth } from './AuthContext'
 
 interface ProfileContextValue {
   profile: UserProfile
@@ -12,33 +13,46 @@ interface ProfileContextValue {
 
 const ProfileContext = createContext<ProfileContextValue | null>(null)
 
-const STORAGE_KEY = 'warm_profile'
+function storageKey(userId: string | undefined): string {
+  // Keyed by user ID so two users on the same browser never share preferences.
+  return userId ? `warm_profile_${userId}` : 'warm_profile_anon'
+}
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  const userId = user?.id
+
   const [profile, setProfileState] = useState<UserProfile>(DEFAULT_PROFILE)
   const [isOnboarded, setIsOnboarded] = useState(false)
 
+  // Re-load whenever the logged-in user changes (e.g. Ellen → Margaret on same browser).
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const key = storageKey(userId)
+    const stored = localStorage.getItem(key)
     if (stored) {
       try {
-        const parsed = JSON.parse(stored)
-        setProfileState(parsed)
+        setProfileState(JSON.parse(stored))
         setIsOnboarded(true)
       } catch {
-        // corrupted storage — start fresh
+        // Corrupted storage — start fresh for this user.
+        setProfileState(DEFAULT_PROFILE)
+        setIsOnboarded(false)
       }
+    } else {
+      // No profile for this user yet — send them through onboarding.
+      setProfileState(DEFAULT_PROFILE)
+      setIsOnboarded(false)
     }
-  }, [])
+  }, [userId])
 
-  // Apply font size preference to <html> so CSS variables scale via data-font-size
+  // Apply font size preference to <html> so CSS variables scale via data-font-size.
   useEffect(() => {
     document.documentElement.setAttribute('data-font-size', profile.fontSize)
   }, [profile.fontSize])
 
   function setProfile(p: UserProfile) {
     setProfileState(p)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(p))
+    localStorage.setItem(storageKey(userId), JSON.stringify(p))
   }
 
   function completeOnboarding(p: UserProfile) {

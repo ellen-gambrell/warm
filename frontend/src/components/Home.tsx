@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useProfile } from '../context/ProfileContext'
 import { useAuth } from '../context/AuthContext'
 import { navigate } from '../App'
@@ -17,10 +18,24 @@ const SHORTCUTS = [
   { id: 'settings',  label: 'Settings',      icon: '⚙️', color: 'var(--color-text-muted)', href: '/settings' },
 ]
 
+const ADMIN_COLOR = '#c0392b'
+
 export default function Home() {
   const { profile } = useProfile()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const name = profile.name || 'there'
+  const isAdmin = user?.role === 'admin'
+
+  // Admin: fetch pending request count to show a badge on the Admin tile.
+  // Only called when role is confirmed admin (server-verified via /api/auth/me).
+  const [pendingCount, setPendingCount] = useState(0)
+  useEffect(() => {
+    if (!isAdmin) return
+    fetch('/api/admin/pending-count', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setPendingCount(data.count) })
+      .catch(() => {})
+  }, [isAdmin])
 
   return (
     <div
@@ -84,6 +99,62 @@ export default function Home() {
             </a>
           )
         })}
+
+        {/* Admin tile — only rendered for role=admin, confirmed from /api/auth/me */}
+        {isAdmin && (
+          <a
+            href="/admin"
+            onClick={(e) => { e.preventDefault(); navigate('/admin') }}
+            aria-label={pendingCount > 0 ? `Admin — ${pendingCount} pending request${pendingCount !== 1 ? 's' : ''}` : 'Admin'}
+            style={{
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              background: 'var(--color-surface)',
+              border: '2px solid var(--color-border)',
+              borderRadius: 20,
+              padding: '24px 12px',
+              minHeight: 120,
+              textDecoration: 'none',
+              color: 'var(--color-text)',
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = ADMIN_COLOR)}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
+            onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = ADMIN_COLOR)}
+            onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
+          >
+            {pendingCount > 0 && (
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 12,
+                  background: ADMIN_COLOR,
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  borderRadius: 99,
+                  minWidth: 22,
+                  height: 22,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 6px',
+                  lineHeight: 1,
+                }}
+              >
+                {pendingCount}
+              </span>
+            )}
+            <span style={{ fontSize: 36 }} role="img" aria-hidden="true">🔑</span>
+            <span style={{ fontSize: 'var(--fs-base)', fontWeight: 600, textAlign: 'center' }}>Admin</span>
+          </a>
+        )}
       </div>
 
       <button

@@ -41,9 +41,9 @@ Domain/naming: project_domain_naming.md
 
 Stage: Live — active development
 Domain: warm.care (live)
-Stack: React PWA (TypeScript + Vite) + FastAPI (Python 3.11) + SQLite + GreenGeeks shared hosting
+Stack: React PWA (TypeScript + Vite) + FastAPI (Python 3.11) + SQLite + Hetzner VPS
 Auth: Google OAuth (HttpOnly cookie) — live in production
-Last meaningful work: Google OAuth + SMTP migration, security CRITICALs resolved (2026-04-27)
+Last meaningful work: Security hardening (HIGH-1/2, MEDIUM-1/2/3, LOW-1) + admin pending-count badge (2026-05-12)
 
 ### What's Built and Live
 - Home screen (2-column tile grid, 64px targets)
@@ -59,8 +59,8 @@ Last meaningful work: Google OAuth + SMTP migration, security CRITICALs resolved
 - Sign out button (Home + Settings)
 - 4-theme system (warm dark, warm light, adaptive, high contrast)
 
-### Pending Infra (before Google OAuth goes live)
-See NOTES.md "Infra Needed — 2026-04-26"
+### Pending Deploy
+PR #6 ready to merge — security hardening + admin badge. See NOTES.md for test plan.
 
 ---
 
@@ -126,6 +126,16 @@ follows this convention.
   /admin route → AdminPanel (pending queue, approve/deny, 64px targets). Login reads ?error= params.
   DB migrations applied on startup. CI green. Health 200 OK.
 
+[Builder 2026-05-12] PENDING DEPLOY — security hardening + admin badge (PR #6)
+  HIGH-1: password_login now returns JSONResponse with cookie — password auth fixed.
+  HIGH-2: _oauth_states replaced with auth_states DB table — Google OAuth cross-worker safe.
+  MEDIUM-1: role removed from localStorage cache — defaults to 'user' until server confirms.
+  MEDIUM-2: google-auth library verifies ID token signature (aud/iss/exp/sig).
+  MEDIUM-3: 10 request/24h rate limit on access request creation.
+  LOW-1: req_id: uuid.UUID on admin routes — 422 on non-UUID before DB hit.
+  INFO-2: ARCHITECTURE.md created.
+  Frontend: Admin tile added to Home (admin-only, live pending-count badge from /api/admin/pending-count).
+
 ---
 
 ## ⚠️ Flags
@@ -138,13 +148,14 @@ follows this convention.
 [Security 2026-04-27] ✅ RESOLVED — MEDIUM-4: Primary user signup gated after first registration. Commit 6730c42.
 [Security 2026-04-27] ✅ RESOLVED — MEDIUM-5: GOOGLE_AUTH_REDIRECT_URI standardized in connections.py. Commit 6730c42.
 
-[Security 2026-05-12] 🔴 OPEN — HIGH-1: password_login discards session cookie — cookie never set, password auth broken. auth.py:396–399. Builder fix needed.
-[Security 2026-05-12] 🔴 OPEN — HIGH-2: _oauth_states in-memory dict broken on 2-worker uvicorn — Google OAuth fails ~50% of the time. auth.py:60. Builder fix: move to existing oauth_states DB table.
-[Security 2026-05-12] 🟡 OPEN — MEDIUM-1: role cached in localStorage — care-environment UI bypass risk. AuthContext.tsx:57. Remove role from cache.
-[Security 2026-05-12] 🟡 OPEN — MEDIUM-2: Google ID token signature not verified (pre-existing). auth.py:116–122.
-[Security 2026-05-12] 🟡 OPEN — MEDIUM-3: No rate limit on access request creation. auth.py:google_callback.
-[Security 2026-05-12] 🔵 OPEN — LOW-1: req_id not UUID-typed. admin.py:81,121.
-[Security 2026-05-12] 🔵 OPEN — LOW-2: _oauth_states memory leak on abandoned flows. auth.py:60. Moot if HIGH-2 fixed.
+[Security 2026-05-12] ✅ RESOLVED — HIGH-1: password_login discards session cookie. Fixed: JSONResponse with cookie. PR #6.
+[Security 2026-05-12] ✅ RESOLVED — HIGH-2: _oauth_states in-memory broken on 2-worker deploy. Fixed: auth_states DB table. PR #6.
+[Security 2026-05-12] ✅ RESOLVED — MEDIUM-1: role in localStorage cache. Fixed: removed from writeCache; defaults to 'user'. PR #6.
+[Security 2026-05-12] ✅ RESOLVED — MEDIUM-2: Google ID token signature not verified. Fixed: google-auth library. PR #6.
+[Security 2026-05-12] ✅ RESOLVED — MEDIUM-3: No rate limit on access request creation. Fixed: 10/24h global limit. PR #6.
+[Security 2026-05-12] ✅ RESOLVED — LOW-1: req_id not UUID-typed. Fixed: uuid.UUID path param. PR #6.
+[Security 2026-05-12] ✅ RESOLVED — LOW-2: _oauth_states memory leak. Moot — HIGH-2 fixed by moving to DB.
+[Security 2026-05-12] 🟡 OPEN — MEDIUM (policy) — Gemini API receives financial PII without DPA. Needs policy decision, not code fix.
 
 ---
 

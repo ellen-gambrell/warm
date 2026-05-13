@@ -24,6 +24,7 @@ import NavBar from './components/NavBar'
 import AdminPortal from './components/AdminPortal'
 import AdminPanel from './components/AdminPanel'
 import BillsView from './components/BillsView'
+import Privacy from './components/Privacy'
 
 /**
  * SPA navigation — pushes to browser history AND updates the NavContext stack
@@ -128,6 +129,9 @@ function AppShell() {
     const token = new URLSearchParams(search).get('token') ?? ''
     return <SetPassword token={token} />
   }
+
+  // Privacy policy — public, no auth required
+  if (path === '/privacy') return <Privacy />
 
   if (isLoading) return null
   if (!user) return <Login />

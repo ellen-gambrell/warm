@@ -740,6 +740,9 @@ export default function BillsView({ onOpen }: BillsViewProps) {
           The views, thoughts, and opinions expressed on this site are solely my own and do not represent those of my employer, KPMG.
         </p>
         <p style={{ margin: '4px 0 0' }}>© 2026 Quantum Moon LLC. All rights reserved.</p>
+        <p style={{ margin: '4px 0 0' }}>
+          <a href="/privacy" style={{ color: 'var(--color-text-muted)', textDecoration: 'underline' }}>Privacy policy</a>
+        </p>
       </footer>
     </div>
   )

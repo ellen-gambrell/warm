@@ -199,6 +199,16 @@ def init_db() -> None:
             created_at       INTEGER NOT NULL
         );
 
+        -- ── Primary auth OAuth state (replaces in-memory _oauth_states dict) ──
+        -- Shared across uvicorn workers via DB — no in-process state.
+
+        CREATE TABLE IF NOT EXISTS auth_states (
+            state      TEXT PRIMARY KEY,
+            portal     TEXT NOT NULL DEFAULT 'primary',
+            invite     TEXT,
+            expires_at INTEGER NOT NULL
+        );
+
         -- ── Access requests ───────────────────────────────────────────────────
 
         CREATE TABLE IF NOT EXISTS user_requests (

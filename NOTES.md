@@ -839,3 +839,32 @@ boundaries, auth flow, DB schema ownership, and the threat model.
 
 **No CRITICAL findings.** No new auth bypass or data exposure introduced by this PR.
 The two HIGHs are pre-existing and should be the Builder's next targets.
+
+---
+
+## [Builder 2026-05-12] Overnight security fixes — complete ✅
+
+All code-addressable findings from the 2026-05-12 security review shipped.
+
+| Finding | Fix | Status |
+|---------|-----|--------|
+| HIGH-1 — password_login discards cookie | `JSONResponse` with cookie set returned directly | ✅ Done |
+| HIGH-2 — _oauth_states in-memory (multi-worker) | `auth_states` DB table; `google_login` writes, `google_callback` atomically reads+deletes | ✅ Done |
+| MEDIUM-1 — role in localStorage cache | `writeCache` omits role; `readCache` defaults to `'user'`; real role from `/api/auth/me` | ✅ Done |
+| MEDIUM-2 — Google ID token signature unverified | `_decode_google_id_token` now uses `google-auth` library; fallback with WARNING if unavailable | ✅ Done |
+| MEDIUM-3 — No rate limit on access requests | Max 10 new requests per 24h window before INSERT | ✅ Done |
+| LOW-1 — req_id not UUID-typed | `req_id: uuid.UUID` on both admin routes; FastAPI rejects non-UUIDs with 422 | ✅ Done |
+| INFO-2 — ARCHITECTURE.md missing | Created at project root | ✅ Done |
+
+**Files changed:** auth.py, admin.py, database.py, requirements.txt, AuthContext.tsx, ARCHITECTURE.md (new)
+
+**Infra needed before next deploy:**
+
+`google-auth` added to `requirements.txt`. The Hetzner venv already has it as a
+transitive dependency, but the explicit pin ensures it stays. CI (`pip install -r
+requirements.txt`) will handle it automatically on next push to main. No manual
+server step needed.
+
+**Open findings (not code-addressable without infra/policy decision):**
+- MEDIUM-3 (Gemini API + financial PII / DPA) — policy decision needed
+- INFO-1 (role propagation delay) — accepted by design

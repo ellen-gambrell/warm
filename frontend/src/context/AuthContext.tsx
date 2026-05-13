@@ -43,7 +43,12 @@ const CACHE_KEY = 'warmcare_user_cache'
 function readCache(): AuthUser | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
-    return raw ? (JSON.parse(raw) as AuthUser) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // role is NOT cached (care-environment risk: physical device access could
+    // let someone manually set role=admin in DevTools). Default to 'user' here;
+    // the real role is written after /api/auth/me responds in reVerify().
+    return { ...parsed, role: 'user' }
   } catch {
     localStorage.removeItem(CACHE_KEY)
     return null
@@ -51,10 +56,13 @@ function readCache(): AuthUser | null {
 }
 
 function writeCache(user: AuthUser): void {
-  // Only store non-sensitive display data — never store the JWT here
+  // Store display data only — id, name, email. Role is intentionally excluded.
+  // See MEDIUM-1 in security review 2026-05-12: role in cache allows UI-only
+  // admin bypass from a shared device. Server-side enforcement remains correct
+  // regardless, but we also want to prevent the PII exposure window.
   localStorage.setItem(
     CACHE_KEY,
-    JSON.stringify({ id: user.id, name: user.name, email: user.email, role: user.role }),
+    JSON.stringify({ id: user.id, name: user.name, email: user.email }),
   )
 }
 

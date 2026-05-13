@@ -19,14 +19,10 @@ All agents read and write here. Tag entries clearly.
 | Onboarding rewrite | 3-step welcome → profile → ready flow; all inline CSS (Tailwind removed); profile selection wires into ProfileContext |
 | Custom AI cards | `subscriptions` + `custom_cards` tables; CRUD + manual refresh at `/api/cards`; `require_paid` dep; Gemini 2.0 Flash + Google Search grounding; `_derive_tile_name()` for short tile names; `cron_cards.py` runner; Settings "My Cards" UI (3-card limit); Home grid tiles with detail overlay; Supporter read-only Cards tab via `/api/supporter/cards` |
 
-### Cron setup needed (not yet wired)
+### Cron — live ✅
 
-`backend/cron_cards.py` is deployed but not scheduled. To run cards hourly:
-```bash
-ssh hetzner 'crontab -e'
-# Add:
-0 * * * * cd /home/deploy/warmcare && /home/deploy/warmcare/venv/bin/python backend/cron_cards.py >> /var/log/warmcare_cards.log 2>&1
-```
+`backend/cron_cards.py` scheduled hourly via crontab on Hetzner.
+Logs to `/var/log/warmcare_cards.log`. Monitor: `ssh hetzner 'tail -f /var/log/warmcare_cards.log'`
 
 ---
 

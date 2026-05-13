@@ -4,6 +4,48 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## CEO/Builder 2026-05-13 — multi-user reconciliation complete
+
+**Agent:** CEO (Builder) · **Status:** Committed, pushed to `fix/admin-seed-idempotent`
+**Commit:** `442aeaa` — "Fix metrics, data isolation, and admin endpoint gaps"
+**Touches:** `backend/app/database.py`, `backend/app/admin.py`, `frontend/src/components/Login.tsx`, `frontend/src/components/AdminPortal.tsx`
+
+### What was done
+
+After the multi-user PR (#4 "Set the course") merged, four gaps remained between
+the builder's original implementation and Ellen's backend redesign. All four are now fixed:
+
+1. **database.py** — Added `user_id` column to `checkrun_bills`, `checkrun_transactions`,
+   `checkrun_overrides`, `menu_items`, `menu_meta` (both in `CREATE TABLE IF NOT EXISTS`
+   for fresh DBs and `ALTER TABLE` try/except migrations for existing DBs). Added back-fill
+   that assigns existing rows to the first user. Added `daily_message_counts` and
+   `user_visit_counts` tables (removed by Ellen's rewrite, but needed by `chat.py`
+   and `AdminPortal.tsx`).
+
+2. **admin.py** — Added three missing endpoints: `GET /api/admin/users` (user list),
+   `GET /api/admin/stats` (metrics summary: total users, messages today, 30-day totals,
+   daily chart, top features), `POST /api/admin/visit` (upsert visit counts, open to any
+   authenticated user). Added `datetime` and `BaseModel` imports.
+
+3. **Login.tsx** — Removed the dead request-access form (Ellen's flow makes it implicit:
+   unknown Google sign-in auto-creates a pending request). Fixed error code
+   `access_pending` → `pending_approval` to match backend redirect. Removed unused state
+   vars (`reqName`, `reqEmail`, `reqMsg`). Removed `doRequestAccess()` function.
+
+4. **AdminPortal.tsx** — Renamed `reject` → `deny` in endpoint URL, action type, optimistic
+   update, and button label. Updated status type `'rejected'` → `'denied'` to match DB.
+
+### No new pip packages or npm packages. Clean TypeScript build (0 errors).
+
+### What's still needed before this branch ships
+
+- The `fix/admin-seed-idempotent` branch needs to be merged (PR open, awaiting infra).
+  It includes both the seed fix (commit `4f6a8bb`) and these reconciliation fixes (commit `442aeaa`).
+- After merge+deploy, verify: checkrun and menu queries work for Margaret (user_id back-fill ran),
+  `/api/admin/stats` returns data, `/api/admin/visit` records visits.
+
+---
+
 ## Infra 2026-05-13 — overnight: seed bug fix in progress
 
 **Agent:** Infra · **Status:** PR open, awaiting merge

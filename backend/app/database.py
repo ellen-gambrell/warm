@@ -209,6 +209,29 @@ def init_db() -> None:
             expires_at INTEGER NOT NULL
         );
 
+        -- ── Custom AI Cards ───────────────────────────────────────────────────
+
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id         TEXT PRIMARY KEY,
+            user_id    TEXT NOT NULL REFERENCES users(id) UNIQUE,
+            status     TEXT NOT NULL DEFAULT 'active',  -- 'active' | 'inactive' | 'trial'
+            created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS custom_cards (
+            id              TEXT PRIMARY KEY,
+            user_id         TEXT NOT NULL REFERENCES users(id),
+            prompt          TEXT NOT NULL,
+            tile_name       TEXT NOT NULL,        -- derived by Gemini from prompt
+            schedule        TEXT NOT NULL,        -- 'daily' | 'weekly' | 'monthly' | 'annually'
+            visibility      TEXT NOT NULL DEFAULT 'private',  -- 'private' | 'supporter_view'
+            last_result     TEXT,
+            last_run_at     INTEGER,
+            next_run_at     INTEGER,
+            created_at      INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_custom_cards_user      ON custom_cards(user_id);
+        CREATE INDEX IF NOT EXISTS idx_custom_cards_next_run  ON custom_cards(next_run_at);
         -- ── Access requests ───────────────────────────────────────────────────
 
         CREATE TABLE IF NOT EXISTS user_requests (
@@ -258,6 +281,13 @@ def init_db() -> None:
     except Exception:
         pass  # Column already exists
 
+    # Migrate: add input_profile column to users
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN input_profile TEXT NOT NULL DEFAULT 'stylus'")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
     # Migrate: add user_id to shared tables (multi-user isolation)
     for tbl in ("checkrun_bills", "checkrun_transactions", "checkrun_overrides",
                 "menu_items", "menu_meta"):
@@ -277,6 +307,17 @@ def init_db() -> None:
                 f"UPDATE {tbl} SET user_id = ? WHERE user_id IS NULL", (uid,)
             )
         conn.commit()
+
+    # Seed: ensure all existing users have a subscription row (active)
+    existing_users = conn.execute("SELECT id FROM users").fetchall()
+    now_ts = int(__import__('time').time())
+    for u in existing_users:
+        conn.execute(
+            "INSERT OR IGNORE INTO subscriptions (id, user_id, status, created_at) "
+            "VALUES (lower(hex(randomblob(16))), ?, 'active', ?)",
+            (u["id"], now_ts),
+        )
+    conn.commit()
 
     # Seed: ensure ellengambrell@gmail.com exists as admin (idempotent)
     # INSERT OR IGNORE creates the row if absent; UPDATE promotes if somehow demoted.

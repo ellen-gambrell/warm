@@ -20,6 +20,72 @@ const SHORTCUTS = [
 
 const ADMIN_COLOR = '#c0392b'
 
+interface CustomCard {
+  id: string
+  tile_name: string
+  last_result: string | null
+  last_run_at: number | null
+  visibility: string
+}
+
+// ── Card detail overlay ───────────────────────────────────────────────────────
+
+function CardDetail({ card, onClose }: { card: CustomCard; onClose: () => void }) {
+  const timestamp = card.last_run_at
+    ? `Updated ${new Date(card.last_run_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+    : 'First update pending'
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'var(--color-bg)',
+      zIndex: 200,
+      display: 'flex', flexDirection: 'column',
+      padding: '24px 16px',
+      maxWidth: 640, margin: '0 auto',
+      overflowY: 'auto',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+        <button
+          onClick={onClose}
+          aria-label="Back"
+          style={{
+            minHeight: 52, minWidth: 52, borderRadius: 14,
+            background: 'var(--color-surface)', border: '2px solid var(--color-border)',
+            color: 'var(--color-text)', fontSize: 20, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >←</button>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--color-text)', flex: 1 }}>
+          {card.tile_name}
+        </h1>
+      </div>
+
+      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-muted)' }}>{timestamp}</p>
+
+      {card.last_result ? (
+        <div style={{
+          background: 'var(--color-surface)', borderRadius: 18,
+          padding: 20, border: '2px solid var(--color-border)',
+          fontSize: 17, lineHeight: 1.75, color: 'var(--color-text)',
+          whiteSpace: 'pre-wrap',
+        }}>
+          {card.last_result}
+        </div>
+      ) : (
+        <div style={{
+          background: 'var(--color-surface)', borderRadius: 18,
+          padding: 20, border: '2px solid var(--color-border)',
+          textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 17,
+        }}>
+          First update pending. Your card will run on its next scheduled time.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main Home ─────────────────────────────────────────────────────────────────
+
 export default function Home() {
   const { profile } = useProfile()
   const { user, logout } = useAuth()
@@ -36,6 +102,20 @@ export default function Home() {
       .then(data => { if (data) setPendingCount(data.count) })
       .catch(() => {})
   }, [isAdmin])
+
+  const [cards, setCards] = useState<CustomCard[]>([])
+  const [activeCard, setActiveCard] = useState<CustomCard | null>(null)
+
+  useEffect(() => {
+    fetch('/api/cards', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setCards(Array.isArray(d) ? d : []))
+      .catch(() => {})
+  }, [])
+
+  if (activeCard) {
+    return <CardDetail card={activeCard} onClose={() => setActiveCard(null)} />
+  }
 
   return (
     <div
@@ -155,6 +235,41 @@ export default function Home() {
             <span style={{ fontSize: 'var(--fs-base)', fontWeight: 600, textAlign: 'center' }}>Admin</span>
           </a>
         )}
+
+        {/* Custom AI Cards */}
+        {cards.map(card => (
+          <button
+            key={card.id}
+            onClick={() => setActiveCard(card)}
+            aria-label={`${card.tile_name}${card.last_run_at ? `, updated ${new Date(card.last_run_at * 1000).toLocaleDateString()}` : ', first update pending'}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              background: 'var(--color-surface)',
+              border: '2px solid var(--color-border)',
+              borderRadius: 20,
+              padding: '24px 12px',
+              minHeight: 120,
+              color: 'var(--color-text)',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.borderColor = '#7b6ef6')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
+            onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = '#7b6ef6')}
+            onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
+          >
+            <span style={{ fontSize: 36 }} role="img" aria-hidden="true">✨</span>
+            <span style={{ fontSize: 'var(--fs-base)', fontWeight: 600, textAlign: 'center' }}>{card.tile_name}</span>
+            {!card.last_run_at && (
+              <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Pending first update</span>
+            )}
+          </button>
+        ))}
       </div>
 
       <button

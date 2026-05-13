@@ -443,3 +443,27 @@ def margaret_revoke_supporter(account_id: str, _user: dict = Depends(get_current
     db.commit()
     db.close()
     return {"status": "revoked"}
+
+
+# ── Supporter: read-only custom cards ─────────────────────────────────────────
+
+@router.get("/api/supporter/cards")
+def get_supporter_cards(supporter: dict = Depends(get_current_supporter)):
+    """
+    Returns custom cards with visibility='supporter_view' belonging to any primary user
+    that this supporter supports. Read-only — supporters cannot edit or trigger cards.
+    """
+    _log(supporter["id"], "view:cards")
+    db = get_db()
+    try:
+        # Find all primary users that this supporter is associated with
+        rows = db.execute(
+            "SELECT cc.id, cc.tile_name, cc.last_result, cc.last_run_at, cc.schedule "
+            "FROM custom_cards cc "
+            "JOIN subscriptions s ON s.user_id = cc.user_id "
+            "WHERE cc.visibility = 'supporter_view' AND s.status IN ('active','trial') "
+            "ORDER BY cc.created_at ASC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        db.close()

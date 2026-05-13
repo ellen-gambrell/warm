@@ -27,19 +27,23 @@ export default function GifView() {
   const [configured, setConfigured] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const [searchError, setSearchError] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const search = async (q: string) => {
     setIsLoading(true)
     setHasSearched(true)
+    setSearchError(false)
     try {
       const res = await fetch(`/api/gif/search?q=${encodeURIComponent(q)}&limit=20`, { credentials: 'include' })
+      if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
       setConfigured(data.configured)
       setResults(data.results || [])
     } catch {
       setResults([])
+      setSearchError(true)
     } finally {
       setIsLoading(false)
     }
@@ -154,8 +158,15 @@ export default function GifView() {
         </p>
       )}
 
+      {/* ── Search error ── */}
+      {!isLoading && configured && searchError && (
+        <p role="alert" style={{ textAlign: 'center', fontSize: 18, color: 'var(--color-danger)', padding: '24px 0' }}>
+          Search failed. Check your connection and try again.
+        </p>
+      )}
+
       {/* ── No results ── */}
-      {!isLoading && configured && hasSearched && results.length === 0 && (
+      {!isLoading && configured && !searchError && hasSearched && results.length === 0 && (
         <p style={{ textAlign: 'center', fontSize: 18, color: 'var(--color-text-muted)', padding: '24px 0' }}>
           No GIFs found. Try different words.
         </p>

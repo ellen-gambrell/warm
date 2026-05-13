@@ -3,6 +3,7 @@ import DocumentViewer from './DocumentViewer'
 import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
 import { useTrackVisit } from '../hooks/useTrackVisit'
+import { navigate } from '../App'
 
 const ACCEPTED = 'application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif'
 
@@ -79,39 +80,53 @@ export default function Drive() {
 
   // Google Drive state
   const [driveConnected, setDriveConnected] = useState(false)
+  const [driveNotConnected, setDriveNotConnected] = useState(false)
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([])
   const [driveLoading, setDriveLoading] = useState(false)
+  const [driveError, setDriveError] = useState<string | null>(null)
   const [activeSynopsisId, setActiveSynopsisId] = useState<string | null>(null)
   const [synopses, setSynopses] = useState<Record<string, DriveFileSynopsis | null>>({})
   const [synopsisLoading, setSynopsisLoading] = useState<Record<string, boolean>>({})
 
+  const loadDriveFiles = async (cancelled: { current: boolean }) => {
+    setDriveError(null)
+    setDriveLoading(true)
+    try {
+      const filesRes = await fetch('/api/drive/files', { credentials: 'include' })
+      if (!filesRes.ok) throw new Error(`Drive returned ${filesRes.status}`)
+      const data = await filesRes.json()
+      if (!cancelled.current) setDriveFiles(data.files || [])
+    } catch {
+      if (!cancelled.current) setDriveError('Could not load your Drive files. Check your connection and try again.')
+    } finally {
+      if (!cancelled.current) setDriveLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!user) return
-    let cancelled = false
+    const cancelled = { current: false }
 
     async function checkAndLoad() {
       try {
         const res = await fetch('/api/connections/status', { credentials: 'include' })
         if (!res.ok) return
         const status = await res.json()
-        if (!status.drive) return
-        if (!cancelled) setDriveConnected(true)
-
-        setDriveLoading(true)
-        const filesRes = await fetch('/api/drive/files', { credentials: 'include' })
-        if (!filesRes.ok) return
-        const data = await filesRes.json()
-        if (!cancelled) setDriveFiles(data.files || [])
+        if (!status.drive) {
+          if (!cancelled.current) setDriveNotConnected(true)
+          return
+        }
+        if (!cancelled.current) setDriveConnected(true)
+        await loadDriveFiles(cancelled)
       } catch {
-        // silently ignore Drive load errors
-      } finally {
-        if (!cancelled) setDriveLoading(false)
+        if (!cancelled.current) setDriveError('Could not check Google Drive connection.')
+        if (!cancelled.current) setDriveLoading(false)
       }
     }
 
     checkAndLoad()
-    return () => { cancelled = true }
-  }, [user])
+    return () => { cancelled.current = true }
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleFileSynopsis(file: DriveFile) {
     if (activeSynopsisId === file.id) {
@@ -128,9 +143,7 @@ export default function Drive() {
         credentials: 'include',
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
         setSynopses(prev => ({ ...prev, [file.id]: null }))
-        console.error('Synopsis error:', err.detail)
         return
       }
       const data: DriveFileSynopsis = await res.json()
@@ -376,6 +389,35 @@ export default function Drive() {
         )}
       </section>
 
+      {/* Google Drive — not connected */}
+      {driveNotConnected && (
+        <section aria-label="Connect Google Drive" style={{ marginTop: 8, marginBottom: 16 }}>
+          <div style={{
+            background: 'var(--color-surface)',
+            borderRadius: 20,
+            padding: 28,
+            border: '2px solid var(--color-border)',
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 18, color: 'var(--color-text)', marginBottom: 20, lineHeight: 1.6 }}>
+              Connect Google Drive in Settings to browse and summarize your files here.
+            </p>
+            <button
+              onClick={() => navigate('/settings')}
+              aria-label="Go to Settings to connect Google Drive"
+              style={{
+                minHeight: 56, padding: '0 28px', borderRadius: 14,
+                background: 'var(--color-accent)', color: '#fff',
+                border: 'none', fontSize: 18, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Go to Settings
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Google Drive section (only shown when connected) */}
       {driveConnected && (
         <section
@@ -392,7 +434,29 @@ export default function Drive() {
             </p>
           )}
 
-          {!driveLoading && driveFiles.length === 0 && (
+          {!driveLoading && driveError && (
+            <div style={{
+              background: 'var(--color-surface)', borderRadius: 16, padding: 24,
+              border: '2px solid var(--color-border)', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>⚠️</div>
+              <p style={{ margin: '0 0 16px', fontSize: 16, color: 'var(--color-text)' }}>{driveError}</p>
+              <button
+                onClick={() => loadDriveFiles({ current: false })}
+                aria-label="Retry loading Drive files"
+                style={{
+                  minHeight: 48, padding: '0 24px', borderRadius: 12,
+                  background: 'var(--color-accent)', color: '#fff',
+                  border: 'none', fontSize: 16, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {!driveLoading && !driveError && driveFiles.length === 0 && (
             <p style={{ color: 'var(--color-text-muted)', fontSize: 16 }}>
               No recent files found in your Drive.
             </p>
@@ -464,9 +528,26 @@ export default function Drive() {
                     )}
 
                     {!synopsisLoading[file.id] && synopses[file.id] === null && (
-                      <p role="alert" style={{ margin: 0, color: 'var(--color-danger)', fontSize: 16 }}>
-                        Could not generate summary for this file.
-                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <p role="alert" style={{ margin: 0, color: 'var(--color-danger)', fontSize: 16 }}>
+                          Could not generate a summary for this file.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setSynopses(prev => { const n = { ...prev }; delete n[file.id]; return n })
+                            handleFileSynopsis(file)
+                          }}
+                          aria-label="Retry summary"
+                          style={{
+                            minHeight: 40, padding: '0 16px', borderRadius: 10,
+                            background: 'var(--color-surface-raised)',
+                            color: 'var(--color-text)', border: '2px solid var(--color-border)',
+                            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          Try again
+                        </button>
+                      </div>
                     )}
 
                     {!synopsisLoading[file.id] && synopses[file.id] && (

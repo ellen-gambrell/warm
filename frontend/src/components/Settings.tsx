@@ -12,6 +12,17 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useProfile } from '../context/ProfileContext'
+import type { AccessProfile } from '../types'
+import { PROFILE_LABELS, PROFILE_DESCRIPTIONS } from '../types'
+
+const ALL_PROFILES: AccessProfile[] = ['stylus', 'voice', 'switch', 'gaze', 'touch']
+const PROFILE_EMOJIS: Record<AccessProfile, string> = {
+  stylus: '✏️',
+  voice: '🎙️',
+  switch: '💨',
+  gaze: '👁️',
+  touch: '👆',
+}
 
 // ── Supporter management types ─────────────────────────────────────────────────
 
@@ -232,6 +243,26 @@ export default function Settings() {
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviteError, setInviteError] = useState('')
 
+  // Custom AI Cards
+  interface CustomCard {
+    id: string
+    prompt: string
+    tile_name: string
+    schedule: string
+    visibility: string
+    last_result: string | null
+    last_run_at: number | null
+  }
+  const [cards, setCards] = useState<CustomCard[]>([])
+  const [cardsLoading, setCardsLoading] = useState(true)
+  const [showCardForm, setShowCardForm] = useState(false)
+  const [cardPrompt, setCardPrompt] = useState('')
+  const [cardSchedule, setCardSchedule] = useState('daily')
+  const [cardVisibility, setCardVisibility] = useState<'private' | 'supporter_view'>('private')
+  const [cardSaving, setCardSaving] = useState(false)
+  const [cardError, setCardError] = useState('')
+  const [editingCard, setEditingCard] = useState<CustomCard | null>(null)
+
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Load connection status & handle OAuth redirect params ──────────────────
@@ -293,6 +324,69 @@ export default function Settings() {
   }, [])
 
   useEffect(() => { if (user) fetchSupporters() }, [user, fetchSupporters])
+
+  // Load cards
+  useEffect(() => {
+    if (!user) return
+    setCardsLoading(true)
+    fetch('/api/cards', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setCards(Array.isArray(d) ? d : []))
+      .catch(() => setCards([]))
+      .finally(() => setCardsLoading(false))
+  }, [user])
+
+  async function saveCard() {
+    if (!cardPrompt.trim()) return
+    setCardSaving(true); setCardError('')
+    try {
+      const isEdit = !!editingCard
+      const url = isEdit ? `/api/cards/${editingCard!.id}` : '/api/cards'
+      const method = isEdit ? 'PATCH' : 'POST'
+      const r = await fetch(url, {
+        method, credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: cardPrompt.trim(), schedule: cardSchedule, visibility: cardVisibility }),
+      })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.detail || 'Could not save card.')
+      }
+      const saved = await r.json()
+      setCards(prev => isEdit
+        ? prev.map(c => c.id === saved.id ? saved : c)
+        : [...prev, saved]
+      )
+      setShowCardForm(false); setEditingCard(null)
+      setCardPrompt(''); setCardSchedule('daily'); setCardVisibility('private')
+    } catch (e: unknown) {
+      setCardError(e instanceof Error ? e.message : 'Could not save card.')
+    } finally {
+      setCardSaving(false)
+    }
+  }
+
+  async function deleteCard(id: string, name: string) {
+    if (!window.confirm(`Delete "${name}"?`)) return
+    await fetch(`/api/cards/${id}`, { method: 'DELETE', credentials: 'include' })
+    setCards(prev => prev.filter(c => c.id !== id))
+  }
+
+  async function refreshCard(id: string) {
+    const r = await fetch(`/api/cards/${id}/refresh`, { method: 'POST', credentials: 'include' })
+    if (r.ok) {
+      const updated = await r.json()
+      setCards(prev => prev.map(c => c.id === id ? updated : c))
+    }
+  }
+
+  function startEditCard(card: CustomCard) {
+    setEditingCard(card)
+    setCardPrompt(card.prompt)
+    setCardSchedule(card.schedule)
+    setCardVisibility(card.visibility as 'private' | 'supporter_view')
+    setShowCardForm(true)
+  }
 
   async function sendInvite() {
     setInviteError(''); setInviteMsg('')
@@ -747,6 +841,174 @@ export default function Settings() {
 
       </div>
 
+      {/* ── Section: My Cards ── */}
+      <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        My Cards
+      </h2>
+      <p style={{ margin: '0 0 14px', fontSize: 15, color: 'var(--color-text-muted)' }}>
+        Custom tiles that update on a schedule using AI. Up to {3} cards.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}>
+        {cardsLoading && (
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 15 }}>Loading…</p>
+        )}
+
+        {!cardsLoading && cards.map(card => (
+          <div
+            key={card.id}
+            style={{
+              background: 'var(--color-surface)',
+              borderRadius: 18,
+              padding: 18,
+              border: '2px solid var(--color-border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 700, color: 'var(--color-text)' }}>
+                  {card.tile_name}
+                </p>
+                <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--color-text-muted)' }}>
+                  {card.schedule} · {card.visibility === 'supporter_view' ? 'Visible to supporters' : 'Private'}
+                </p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                  {card.prompt.length > 80 ? card.prompt.slice(0, 80) + '…' : card.prompt}
+                </p>
+                {card.last_run_at && (
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                    Last updated {new Date(card.last_run_at * 1000).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button
+                  onClick={() => refreshCard(card.id)}
+                  aria-label={`Refresh ${card.tile_name}`}
+                  style={{ ...BTN, minHeight: 40, minWidth: 40, fontSize: 14, fontWeight: 700, background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 10px', color: 'var(--color-text)' }}
+                >↻</button>
+                <button
+                  onClick={() => startEditCard(card)}
+                  aria-label={`Edit ${card.tile_name}`}
+                  style={{ ...BTN, minHeight: 40, minWidth: 40, fontSize: 14, fontWeight: 700, background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 10px', color: 'var(--color-text)' }}
+                >Edit</button>
+                <button
+                  onClick={() => deleteCard(card.id, card.tile_name)}
+                  aria-label={`Delete ${card.tile_name}`}
+                  style={{ ...BTN, minHeight: 40, minWidth: 40, fontSize: 14, fontWeight: 700, background: 'transparent', border: '1px solid var(--color-danger)', borderRadius: 10, padding: '0 10px', color: 'var(--color-danger)' }}
+                >Delete</button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {!cardsLoading && !showCardForm && cards.length < 3 && (
+          <button
+            onClick={() => { setEditingCard(null); setCardPrompt(''); setCardSchedule('daily'); setCardVisibility('private'); setShowCardForm(true) }}
+            aria-label="Add a new card"
+            style={{
+              ...BTN,
+              background: 'var(--color-surface)',
+              border: '2px dashed var(--color-border)',
+              color: 'var(--color-text-muted)',
+              fontSize: 16,
+              minHeight: 56,
+            }}
+          >
+            + Add a card
+          </button>
+        )}
+
+        {!cardsLoading && cards.length >= 3 && !showCardForm && (
+          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', margin: 0 }}>
+            You've reached the 3-card limit.
+          </p>
+        )}
+
+        {showCardForm && (
+          <div style={{ background: 'var(--color-surface)', borderRadius: 20, padding: 20, border: '2px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>
+              {editingCard ? 'Edit card' : 'New card'}
+            </h3>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                What do you want?
+              </span>
+              <textarea
+                value={cardPrompt}
+                onChange={e => setCardPrompt(e.target.value)}
+                placeholder='e.g. "Daily Mets scores from yesterday"'
+                rows={3}
+                style={{
+                  background: 'var(--color-surface-raised)',
+                  border: '2px solid var(--color-border)',
+                  borderRadius: 12, color: 'var(--color-text)',
+                  fontSize: 16, padding: '12px 14px',
+                  resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5,
+                }}
+              />
+            </label>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-muted)' }}>How often?</span>
+              <select
+                value={cardSchedule}
+                onChange={e => setCardSchedule(e.target.value)}
+                style={{
+                  background: 'var(--color-surface-raised)',
+                  border: '2px solid var(--color-border)',
+                  borderRadius: 12, color: 'var(--color-text)',
+                  fontSize: 16, padding: '12px 14px',
+                  fontFamily: 'inherit', minHeight: 52,
+                }}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="annually">Annually</option>
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={cardVisibility === 'supporter_view'}
+                onChange={e => setCardVisibility(e.target.checked ? 'supporter_view' : 'private')}
+                style={{ width: 20, height: 20 }}
+              />
+              <span style={{ fontSize: 15, color: 'var(--color-text)' }}>
+                Show to supporters
+              </span>
+            </label>
+
+            {cardError && (
+              <p role="alert" style={{ margin: 0, fontSize: 14, color: 'var(--color-danger)' }}>{cardError}</p>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={saveCard}
+                disabled={cardSaving || !cardPrompt.trim()}
+                style={{
+                  ...BTN, flex: 1,
+                  background: cardPrompt.trim() && !cardSaving ? 'var(--color-accent)' : 'var(--color-surface-raised)',
+                  color: cardPrompt.trim() && !cardSaving ? '#fff' : 'var(--color-text-muted)',
+                  fontSize: 16,
+                }}
+              >
+                {cardSaving ? 'Saving…' : (editingCard ? 'Save changes' : 'Create card')}
+              </button>
+              <button
+                onClick={() => { setShowCardForm(false); setEditingCard(null); setCardError('') }}
+                style={{ ...BTN, minWidth: 56, background: 'var(--color-surface-raised)', border: '2px solid var(--color-border)', color: 'var(--color-text)', fontSize: 16 }}
+                aria-label="Cancel"
+              >✕</button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* ── Section: Appearance ── */}
       <h2 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         Appearance
@@ -1056,6 +1318,58 @@ export default function Settings() {
           </button>
         </div>
 
+      </div>
+
+      {/* ── Section: Input Profile ── */}
+      <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        Input Profile
+      </h2>
+      <p style={{ margin: '0 0 14px', fontSize: 15, color: 'var(--color-text-muted)' }}>
+        How you control your device. Shapes touch target sizes and navigation. You can change this any time.
+      </p>
+      <div
+        role="radiogroup"
+        aria-label="Input profile"
+        style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}
+      >
+        {ALL_PROFILES.map(p => {
+          const active = profile.accessProfile === p
+          return (
+            <button
+              key={p}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setProfile({ ...profile, accessProfile: p })}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                padding: '14px 18px',
+                borderRadius: 18,
+                border: active ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
+                background: active ? 'var(--color-surface-raised)' : 'var(--color-surface)',
+                cursor: 'pointer',
+                minHeight: 72,
+                fontFamily: 'inherit',
+                textAlign: 'left',
+                width: '100%',
+              }}
+            >
+              <span style={{ fontSize: 28, flexShrink: 0 }} aria-hidden="true">
+                {PROFILE_EMOJIS[p]}
+              </span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: 'block', fontSize: 17, fontWeight: 700, color: active ? 'var(--color-accent)' : 'var(--color-text)' }}>
+                  {PROFILE_LABELS[p]}
+                  {active && <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 700 }}>✓</span>}
+                </span>
+                <span style={{ display: 'block', fontSize: 13, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                  {PROFILE_DESCRIPTIONS[p]}
+                </span>
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Sign out ── */}

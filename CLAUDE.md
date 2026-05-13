@@ -43,24 +43,33 @@ Stage: Live — active development
 Domain: warm.care (live)
 Stack: React PWA (TypeScript + Vite) + FastAPI (Python 3.11) + SQLite + Hetzner VPS
 Auth: Google OAuth (HttpOnly cookie) — live in production
-Last meaningful work: Security hardening (HIGH-1/2, MEDIUM-1/2/3, LOW-1) + admin pending-count badge (2026-05-12)
+Last meaningful work: Custom AI cards, input profile selector, onboarding rewrite, error states (2026-05-13)
 
 ### What's Built and Live
-- Home screen (2-column tile grid, 64px targets)
+- Home screen (2-column tile grid, 64px targets; admin tile for ellengambrell@gmail.com with pending-count badge)
 - AI Chat (voice input via Web Speech API, TTS, ConfirmationPanel)
-- Gmail read view
-- Google Drive browse view
-- GIF finder (Giphy)
+- Gmail read view + reply/reply-all
+- Google Drive browse view (not-connected vs load-failure error states)
+- GIF finder (Giphy, with search error state)
 - MoneyView (Venmo)
-- Check Run
-- Today's Menu (read-only)
-- Supporter Portal (invite flow, role-based dashboard, menu editor)
-- Settings (connections, 4-theme picker, supporter management, password)
-- Sign out button (Home + Settings)
+- Check Run (user-scoped)
+- Today's Menu (read-only; user-scoped)
+- Supporter Portal (invite flow, role-based dashboard, menu editor, read-only Cards tab)
+- Settings (connections, 4-theme picker, font size, input profile selector, supporter management, custom AI cards, password)
+- Custom AI Cards (Gemini 2.0 Flash + Google Search grounding; scheduled tiles; cron runs hourly)
+- Onboarding flow (3-step: welcome → input profile → ready; inline CSS, no Tailwind)
+- Admin portal (/admin — Ellen only; request queue, user list, usage stats)
+- Multi-user: access request queue, approve/deny, email notifications
+- Reminders (pressure relief / medication; TTS alert banner; global timers)
+- Nav bar (back/forward)
 - 4-theme system (warm dark, warm light, adaptive, high contrast)
+- Font size control (Standard / Large / X-Large)
+- Input profile (stylus / voice / switch / sip-and-puff / gaze; synced to server)
 
-### Pending Deploy
-PR #6 ready to merge — security hardening + admin badge. See NOTES.md for test plan.
+### Infrastructure
+- Hetzner 5.78.110.203, systemd warmcare.service, port 8002, 2 uvicorn workers
+- cron_cards.py runs hourly via crontab → /var/log/warmcare_cards.log
+- Deploy: rsync from local + systemd restart
 
 ---
 
@@ -117,24 +126,23 @@ follows this convention.
 
 ## Recent Changes
 
-[Builder 2026-05-12] LIVE — admin roles, multi-user frontend, request queue, admin API (PR #3/#4, merged + deployed)
-  Backend: users.role (admin|user), ellengambrell@gmail.com = admin. user_requests + user_events tables.
-  google_callback: request/approval flow replaces single-user guard; email_verified gap closed.
-  GET /api/admin/requests, GET /api/admin/pending-count, POST approve/deny with audit events.
-  ADMIN_EMAIL env var. send_access_request_email, send_welcome_email, send_denial_email.
-  Frontend: ProfileContext keyed by user ID (fixes "Hi Margaret" for Ellen). AuthContext exposes role.
-  /admin route → AdminPanel (pending queue, approve/deny, 64px targets). Login reads ?error= params.
-  DB migrations applied on startup. CI green. Health 200 OK.
+[Builder 2026-05-13] LIVE — custom AI cards, input profile, onboarding, error states (PR #7 Fair winds)
+  Custom cards: subscriptions + custom_cards tables; CRUD + refresh at /api/cards; require_paid dep;
+  Gemini 2.0 Flash + Google Search grounding; cron_cards.py hourly runner; Settings UI; Home tiles;
+  Supporter read-only Cards tab via /api/supporter/cards.
+  Input profile: users.input_profile column; PATCH /api/auth/preferences; ProfileContext server sync;
+  data-input-profile on <html>; Settings radio group.
+  Onboarding: 3-step flow, inline CSS (Tailwind removed), wires profile into ProfileContext.
+  Error states: Drive not-connected vs failure; GifView search error.
 
-[Builder 2026-05-12] PENDING DEPLOY — security hardening + admin badge (PR #6)
-  HIGH-1: password_login now returns JSONResponse with cookie — password auth fixed.
-  HIGH-2: _oauth_states replaced with auth_states DB table — Google OAuth cross-worker safe.
-  MEDIUM-1: role removed from localStorage cache — defaults to 'user' until server confirms.
-  MEDIUM-2: google-auth library verifies ID token signature (aud/iss/exp/sig).
-  MEDIUM-3: 10 request/24h rate limit on access request creation.
-  LOW-1: req_id: uuid.UUID on admin routes — 422 on non-UUID before DB hit.
-  INFO-2: ARCHITECTURE.md created.
-  Frontend: Admin tile added to Home (admin-only, live pending-count badge from /api/admin/pending-count).
+[Builder 2026-05-13] LIVE — security hardening (PR #6 Steady the helm)
+  HIGH-1: password_login → JSONResponse with cookie. HIGH-2: auth_states DB table (cross-worker OAuth).
+  MEDIUM-1: role out of localStorage. MEDIUM-2: google-auth ID token verification.
+  MEDIUM-3: 10 request/24h rate limit. LOW-1: uuid.UUID path params. ARCHITECTURE.md created.
+
+[Builder 2026-05-13] LIVE — multi-user, admin portal, metrics (PR #4 Set the course)
+  users.role, user_requests, user_events, daily_message_counts, user_visit_counts tables.
+  Admin portal: request queue, approve/deny, user list, stats. ProfileContext per-user localStorage key.
 
 ---
 

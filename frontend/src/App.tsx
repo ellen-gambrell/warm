@@ -23,6 +23,7 @@ import MenuView from './components/MenuView'
 import NavBar from './components/NavBar'
 import AdminPortal from './components/AdminPortal'
 import AdminPanel from './components/AdminPanel'
+import BillsView from './components/BillsView'
 
 /**
  * SPA navigation — pushes to browser history AND updates the NavContext stack
@@ -141,6 +142,7 @@ function AppShell() {
   else if (path === '/money')      view = <MoneyView />
   else if (path === '/drive')      view = <Drive />
   else if (path === '/gmail')      view = <GmailView />
+  else if (path === '/bills')      view = <BillsView />
   else if (path === '/settings')   view = <Settings />
   else if (path === '/check-run')  view = <CheckRunView />
   else if (path === '/reminders')  view = <RemindersView />

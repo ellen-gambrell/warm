@@ -319,6 +319,24 @@ def init_db() -> None:
         )
     conn.commit()
 
+    # Migrate: add bills table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS bills (
+            id                TEXT PRIMARY KEY,
+            user_id           TEXT NOT NULL REFERENCES users(id),
+            category          TEXT NOT NULL DEFAULT 'other',
+            company_name      TEXT NOT NULL,
+            phone_number      TEXT,
+            customer_number   TEXT,
+            sender_email      TEXT,
+            last_bill_seen_at TEXT,
+            created_at        TEXT DEFAULT (datetime('now')),
+            updated_at        TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_bills_user ON bills(user_id)")
+    conn.commit()
+
     # Seed: ensure ellengambrell@gmail.com exists as admin (idempotent)
     # INSERT OR IGNORE creates the row if absent; UPDATE promotes if somehow demoted.
     # The UPDATE-only approach was a bug — it silently no-ops if the row doesn't exist yet.

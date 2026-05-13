@@ -7,6 +7,7 @@ const SHORTCUTS = [
   { id: 'menu',      label: "Today's Menu",  icon: '🍽️', color: '#e8a045',               href: '/menu' },
   { id: 'chat',      label: 'Ask anything',  icon: '💬', color: '#7b6ef6',               href: '/chat' },
   { id: 'reminders', label: 'Reminders',     icon: '⏰', color: '#e07858',               href: '/reminders' },
+  { id: 'bills',     label: 'Bills',         icon: '🧾', color: '#5c8fc2',               href: '/bills' },
   { id: 'gmail',     label: 'Gmail',         icon: '📧', color: '#4285f4',               href: '/gmail' },
   { id: 'drive',     label: 'Google Drive',  icon: '📁', color: '#34a853',               href: '/drive' },
   { id: 'money',     label: 'Venmo',         icon: '💸', color: '#3d95ce',               href: '/money' },
@@ -123,6 +124,28 @@ export default function Home() {
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // Bills badge: total new bills count from /api/bills/check (only if Gmail connected)
+  // Cleared when user opens BillsView (via clearBillsBadge callback passed as prop).
+  const [billsNewCount, setBillsNewCount] = useState(0)
+
+  useEffect(() => {
+    // Check Gmail connection first — skip if not connected (bills/check returns [] silently,
+    // but we avoid the round-trip and use the connection status as a gate).
+    fetch('/api/connections/status', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(status => {
+        if (status?.gmail) {
+          return fetch('/api/bills/check', { credentials: 'include' })
+            .then(r => r.ok ? r.json() : [])
+            .then((results: Array<{ new_count: number }>) => {
+              const total = results.reduce((sum: number, r) => sum + (r.new_count || 0), 0)
+              setBillsNewCount(total)
+            })
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   const [cards, setCards] = useState<CustomCard[]>([])
   const [activeCard, setActiveCard] = useState<CustomCard | null>(null)
 
@@ -213,14 +236,24 @@ export default function Home() {
       >
         {SHORTCUTS.map((s) => {
           const isExternal = s.href.startsWith('http')
+          const badgeCount = s.id === 'bills' ? billsNewCount : 0
+          const ariaLabel = badgeCount > 0
+            ? `${s.label} — ${badgeCount} new bill${badgeCount !== 1 ? 's' : ''}`
+            : s.label
           return (
             <a
               key={s.id}
               href={s.href}
               target={isExternal ? '_blank' : undefined}
               rel={isExternal ? 'noopener noreferrer' : undefined}
-              onClick={isExternal ? undefined : (e) => { e.preventDefault(); navigate(s.href) }}
+              onClick={isExternal ? undefined : (e) => {
+                e.preventDefault()
+                if (s.id === 'bills') setBillsNewCount(0)
+                navigate(s.href)
+              }}
+              aria-label={ariaLabel}
               style={{
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -240,6 +273,30 @@ export default function Home() {
               onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = s.color)}
               onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)')}
             >
+              {badgeCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 12,
+                    background: s.color,
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderRadius: 99,
+                    minWidth: 22,
+                    height: 22,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 6px',
+                    lineHeight: 1,
+                  }}
+                >
+                  {badgeCount}
+                </span>
+              )}
               <span style={{ fontSize: 36 }} role="img" aria-hidden="true">{s.icon}</span>
               <span style={{ fontSize: 'var(--fs-base)', fontWeight: 600, textAlign: 'center' }}>{s.label}</span>
             </a>

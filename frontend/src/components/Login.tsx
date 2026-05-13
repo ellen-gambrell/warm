@@ -108,6 +108,13 @@ const S = {
     margin: 0,
     textAlign: 'center' as const,
   },
+  info: {
+    color: 'var(--color-text-muted)',
+    fontSize: '0.95rem',
+    margin: 0,
+    textAlign: 'center' as const,
+    lineHeight: 1.5,
+  },
   muted: {
     color: 'var(--color-text-muted)',
     fontSize: '0.8rem',
@@ -125,6 +132,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy]         = useState(false)
   const [error, setError]       = useState('')
+  const [info,  setInfo]        = useState('')
 
   useEffect(() => {
     // Check for OAuth redirect error codes
@@ -151,7 +159,7 @@ export default function Login() {
     const params = new URLSearchParams(window.location.search)
     const err = params.get('error')
     if (err === 'pending_approval') {
-      setError('Your request is pending review. You will receive an email when access is approved.')
+      setInfo('Your request has been received. You\'ll get an email when access is approved.')
     } else if (err === 'auth_failed') {
       setError('Sign-in failed. Contact the account holder if you need access.')
     }
@@ -291,7 +299,8 @@ export default function Login() {
           </>
         )}
 
-        {error && <p role="alert" style={S.error}>{error}</p>}
+        {info  && <p role="status" style={S.info}>{info}</p>}
+        {error && <p role="alert"  style={S.error}>{error}</p>}
       </div>
 
       <p style={S.muted}>© 2026 Quantum Moon LLC. All rights reserved.</p>

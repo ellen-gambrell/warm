@@ -49,6 +49,7 @@ function TypingIndicator() {
 interface Message {
   role: 'user' | 'model'
   text: string
+  usedFinancialContext?: boolean
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
@@ -223,7 +224,11 @@ export default function ChatView() {
 
         // Show the AI's reply text
         if (data.reply) {
-          setMessages((prev) => [...prev, { role: 'model', text: data.reply }])
+          setMessages((prev) => [...prev, {
+            role: 'model',
+            text: data.reply,
+            usedFinancialContext: !!data.used_financial_context,
+          }])
         }
 
         // Show ConfirmationPanel if the AI proposed an action
@@ -506,6 +511,28 @@ export default function ChatView() {
                 msg.text
               )}
             </div>
+
+            {/* Financial context disclosure — shown when Monarch data was sent to AI */}
+            {msg.role === 'model' && msg.usedFinancialContext && (
+              <span
+                aria-label="This response used your financial data from Monarch Money"
+                title="This response used your financial data from Monarch Money"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 13,
+                  color: 'var(--color-text-muted)',
+                  background: 'var(--color-surface-raised)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 8,
+                  padding: '2px 8px',
+                  userSelect: 'none',
+                }}
+              >
+                💰 Used your financial data
+              </span>
+            )}
 
             {/* Read aloud button — AI messages only */}
             {msg.role === 'model' && hasTTS && (

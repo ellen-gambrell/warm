@@ -181,7 +181,11 @@ function RequestCard({
           </button>
         </div>
       ) : (
-        <p style={S.statusTag(req.status)}>
+        <p
+          role="status"
+          aria-label={`${req.status}${req.reviewed_at ? `, reviewed ${formatDate(req.reviewed_at)}` : ''}`}
+          style={S.statusTag(req.status)}
+        >
           {req.status}
           {req.reviewed_at ? ` · ${formatDate(req.reviewed_at)}` : ''}
         </p>
@@ -251,7 +255,7 @@ export default function AdminPanel() {
       </p>
 
       {loading && (
-        <p style={S.empty}>Loading…</p>
+        <p role="status" aria-live="polite" style={S.empty}>Loading…</p>
       )}
       {error && (
         <p role="alert" style={{ color: 'var(--color-error, #c0392b)', fontSize: 'var(--fs-base)' }}>{error}</p>
@@ -259,10 +263,13 @@ export default function AdminPanel() {
 
       {!loading && !error && (
         <>
-          <h2 style={S.subheading}>
+          <h2
+            style={S.subheading}
+            aria-label={pending.length > 0 ? `Pending — ${pending.length} request${pending.length !== 1 ? 's' : ''}` : 'Pending'}
+          >
             Pending
             {pending.length > 0 && (
-              <span style={S.badge} aria-label={`${pending.length} pending`}>{pending.length}</span>
+              <span style={S.badge} aria-hidden="true">{pending.length}</span>
             )}
           </h2>
 

@@ -161,9 +161,10 @@ follows this convention.
 
 ## Open Questions / Decisions Needed
 
-- [ ] **Google OAuth infra deploy** — see NOTES.md "Infra Needed — 2026-04-26". Must happen before login works in production.
-- [ ] **What is Margaret actually using?** — Which features does she use daily? What's broken or frustrating for her right now?
+- [x] **Google OAuth infra deploy** — LIVE 2026-05-12. Login works in production.
+- [x] **Pressure relief / medication reminders** — BUILT 2026-05-06. Reminders tile on Home, interval timers, TTS alert banner.
+- [ ] **What is Margaret actually using?** — Which features does she use daily? What's broken or frustrating for her right now? Needs real-user feedback.
 - [ ] **Supporter invitations** — Has Margaret invited anyone yet? Are her key contacts set up?
-- [ ] **Font / text size** — Default sizes may be too small for Margaret's use case. Needs validation.
-- [ ] **AT testing pass** — No component has been tested with iOS Voice Control "show names" or Switch Control simulation yet.
-- [ ] **Pressure relief / medication reminders** — Safety-critical for SCI. Is this something Margaret needs now?
+- [ ] **Font / text size** — Default sizes may be too small for Margaret's use case. Needs real-device validation.
+- [ ] **AT testing pass** — No component has been tested with iOS Voice Control "show names" or Switch Control simulation yet. AT Specialist agent needed.
+- [ ] **Gemini + financial PII** — Monarch data sent to Gemini API without DPA. Policy decision: add UI disclosure or restrict. (Security MEDIUM — 2026-05-12)

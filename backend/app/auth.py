@@ -203,12 +203,12 @@ def get_profile(user_id: str, response: Response, current: dict = Depends(get_cu
     db = get_db()
     try:
         user = db.execute(
-            "SELECT id, name, email FROM users WHERE id = ?", (user_id,)
+            "SELECT id, name, email, role FROM users WHERE id = ?", (user_id,)
         ).fetchone()
         if not user:
             raise HTTPException(404, "User not found.")
         _set_cookie(response, _issue_jwt(user["id"], user["name"]))
-        return {"id": user["id"], "name": user["name"], "email": user["email"]}
+        return {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}
     finally:
         db.close()
 

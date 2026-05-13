@@ -89,7 +89,9 @@ function CardDetail({ card, onClose }: { card: CustomCard; onClose: () => void }
 export default function Home() {
   const { profile } = useProfile()
   const { user, logout } = useAuth()
-  const name = profile.name || 'there'
+  // Use the server-authoritative name from Google OAuth. Fall back to the
+  // locally-stored profile name (set during onboarding) or a generic greeting.
+  const name = user?.name?.split(' ')[0] || profile.name || 'there'
   const isAdmin = user?.role === 'admin'
 
   // Admin: fetch pending request count to show a badge on the Admin tile.
@@ -102,6 +104,24 @@ export default function Home() {
       .then(data => { if (data) setPendingCount(data.count) })
       .catch(() => {})
   }, [isAdmin])
+
+  // ── PWA install prompt ────────────────────────────────────────────────────────
+  // Show a manual guide for iOS Safari users who haven't installed the PWA yet.
+  // Dismissed state persists in localStorage — never auto-dismisses.
+  const PWA_DISMISSED_KEY = 'warm_pwa_prompt_dismissed'
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false)
+  useEffect(() => {
+    if (localStorage.getItem(PWA_DISMISSED_KEY)) return
+    const isStandalone =
+      ('standalone' in window.navigator && (window.navigator as Navigator & { standalone: boolean }).standalone === true) ||
+      window.matchMedia('(display-mode: standalone)').matches
+    if (!isStandalone) setShowInstallPrompt(true)
+  }, [])
+  function dismissInstallPrompt() {
+    localStorage.setItem(PWA_DISMISSED_KEY, '1')
+    setShowInstallPrompt(false)
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const [cards, setCards] = useState<CustomCard[]>([])
   const [activeCard, setActiveCard] = useState<CustomCard | null>(null)
@@ -137,6 +157,52 @@ export default function Home() {
           Hi, {name}.
         </h1>
       </div>
+
+      {/* ── PWA install prompt ── */}
+      {showInstallPrompt && (
+        <div
+          role="region"
+          aria-label="Add to home screen"
+          style={{
+            background: 'var(--color-surface)',
+            border: '2px solid var(--color-border)',
+            borderRadius: 20,
+            padding: '20px 20px 16px',
+            marginBottom: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <div>
+            <p style={{ margin: '0 0 6px', fontSize: 'var(--fs-base)', fontWeight: 700, color: 'var(--color-text)' }}>
+              Add to your home screen
+            </p>
+            <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+              In Safari, tap the Share button at the bottom of the screen, then tap &ldquo;Add to Home Screen.&rdquo;
+            </p>
+          </div>
+          <button
+            onClick={dismissInstallPrompt}
+            aria-label="Dismiss install prompt"
+            style={{
+              alignSelf: 'flex-start',
+              minHeight: 64,
+              padding: '0 24px',
+              borderRadius: 14,
+              border: '2px solid var(--color-border)',
+              background: 'transparent',
+              color: 'var(--color-text-muted)',
+              fontSize: 'var(--fs-base)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div
         style={{

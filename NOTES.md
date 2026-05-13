@@ -4,6 +4,47 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## [Builder 2026-05-13] Fix hardcoded "Margaret" + PWA install prompt
+
+**Branch:** `claude/elated-black-78a433`
+**Status:** Committed, build clean (zero TypeScript errors)
+
+### Task 1 — Dynamic greeting and supporter copy
+
+Root cause: `Home.tsx` was using `profile.name` (from localStorage/onboarding) for the greeting rather than `user.name` (from Google OAuth via AuthContext). If stale localStorage existed with "Margaret" as the profile name, any logged-in user would see "Hi, Margaret."
+
+Fix: `Home.tsx` now derives the greeting name as `user?.name?.split(' ')[0] || profile.name || 'there'` — server-authoritative first name takes precedence.
+
+Additional hardcoded "Margaret" occurrences fixed:
+- `SupporterLogin.tsx` — `invite_expired` error message: "Please ask Margaret to send a new one" → "Please ask the account holder to send a new one"
+- `SupporterLogin.tsx` — "Are you Margaret?" → "Are you the account holder?"
+- `MenuEditor.tsx` — Success toast "Margaret can see it now" → uses `primaryName` prop (passed from `SupporterDashboard` which fetches the real name from `/api/auth/primary`)
+
+Occurrences left unchanged (code comments, not user-facing):
+- `App.tsx` — comment: `// ── Margaret's app shell`
+- `ProfileContext.tsx` — comment: `// e.g. Ellen → Margaret on same browser`
+- `types.ts` — comment: `// Limited touch, stylus — Margaret's profile`
+- `MenuView.tsx` — file-level comment
+
+### Task 2 — PWA install prompt
+
+Added a dismissable install banner to `Home.tsx` only. Shown when the app is running in a browser (not installed as a PWA). Detection: `window.navigator.standalone !== true` AND `!matchMedia('(display-mode: standalone)').matches`.
+
+- Banner appears between the greeting and the tile grid
+- Heading: "Add to your home screen"
+- Body: Safari-specific instructions (Share button → Add to Home Screen)
+- Dismiss button: 64px min-height, aria-label="Dismiss install prompt", speakable
+- Dismissed state stored in `localStorage` key `warm_pwa_prompt_dismissed` — never reappears
+- No timed dismiss (hard constraint respected)
+- All colors via CSS custom properties — works across all 4 themes
+- Only on Home screen — no other route shows this
+
+[Director: copy review needed] — PWA prompt heading and body copy. Currently: "Add to your home screen" / "In Safari, tap the Share button at the bottom of the screen, then tap 'Add to Home Screen.'" Dismiss button label: "Dismiss". All plain language, no jargon.
+
+[AT Specialist: review] — PWA install prompt. Banner uses `role="region"` with `aria-label="Add to home screen"`. Dismiss button has `aria-label="Dismiss install prompt"`. Min-height 64px. No timed dismiss. Not a modal. Scan order: heading → body text → dismiss button.
+
+---
+
 ## [Builder 2026-05-13] PR #7 "Fair winds" — deployed ✅
 
 **Branch:** `feature/error-states-profile-onboarding-cards`

@@ -117,11 +117,14 @@ follows this convention.
 
 ## Recent Changes
 
-[Builder 2026-05-12] commit 536e819 — Admin roles, user request queue, admin API.
-  users.role column (admin|user); ellengambrell@gmail.com = admin. user_requests + user_events
-  tables added. google_callback: single-user guard replaced with request/approval flow; email_verified
-  gap closed. GET /api/admin/requests, GET /api/admin/pending-count, POST approve/deny with audit
-  events. ADMIN_EMAIL env var. send_access_request_email, send_welcome_email, send_denial_email.
+[Builder 2026-05-12] LIVE — admin roles, multi-user frontend, request queue, admin API (PR #3/#4, merged + deployed)
+  Backend: users.role (admin|user), ellengambrell@gmail.com = admin. user_requests + user_events tables.
+  google_callback: request/approval flow replaces single-user guard; email_verified gap closed.
+  GET /api/admin/requests, GET /api/admin/pending-count, POST approve/deny with audit events.
+  ADMIN_EMAIL env var. send_access_request_email, send_welcome_email, send_denial_email.
+  Frontend: ProfileContext keyed by user ID (fixes "Hi Margaret" for Ellen). AuthContext exposes role.
+  /admin route → AdminPanel (pending queue, approve/deny, 64px targets). Login reads ?error= params.
+  DB migrations applied on startup. CI green. Health 200 OK.
 
 ---
 

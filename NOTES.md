@@ -61,7 +61,7 @@ Root cause found during PR #3/#4 deploy: `init_db()` seed was `UPDATE`-only, sil
 
 ---
 
-## Infra Needed — 2026-05-12 — admin roles + user request queue
+## Infra Needed — 2026-05-12 — admin roles + user request queue — ✅ DEPLOYED 2026-05-12
 
 **Trigger:** PR from branch `claude/cool-maxwell-30b110`. Merge to main first, then run this.
 
@@ -597,3 +597,17 @@ Shipped. All verification steps passed.
 [Security: review] — new auth path (google_callback request flow), new admin routes, role column
 [AT Specialist: review] — no UI changes in this PR; no AT impact expected, but flag if /admin frontend is built
 [Director: copy review needed] — pending_approval error state copy on the frontend (not yet built)
+
+---
+
+## [Infra 2026-05-12] Deploy confirmed — admin portal live
+
+Merge conflict between PR #3 and PR #4 resolved by rebase; PR #4 (superset) taken wholesale.
+CI: all green in 32s. DB migrations applied on startup. Both workers up. Health: 200 OK.
+warm.care/admin is live for ellengambrell@gmail.com.
+
+**Gates still open:**
+- [Security: review] — new auth path, admin routes, role column — no security review yet
+- [AT Specialist: review] — AdminPanel component (64px targets, ARIA labels present; full AT review pending)
+- [Director: copy review needed] — pending_approval and auth_failed error messages in Login.tsx;
+  AdminPanel heading/button copy

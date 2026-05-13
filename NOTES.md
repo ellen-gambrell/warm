@@ -462,3 +462,29 @@ Builder: find `role_label` display in `frontend/src/components/SupporterDashboar
 ### Open for Director Review
 - V1 access profile scope: recommend Stylus + Voice for V1 (Margaret's profile), defer Sip-and-Puff and Eye Gaze to V2 — but architecture must support them from day one
 - Stack decision required before Builder can begin
+
+---
+
+## [Builder 2026-05-12] Admin roles + user request queue — commit 536e819
+
+Shipped. All verification steps passed.
+
+**What changed:**
+- `users.role` (admin|user) — ellengambrell@gmail.com seeded as admin on startup
+- `user_requests` table — pending/approved/denied access queue
+- `user_events` table — admin audit log with indexes
+- `google_callback` — single-user guard replaced with request flow; unverified Google email claim now rejected
+- `GET /api/admin/requests` — list all requests, newest first
+- `GET /api/admin/pending-count` — `{ count: N }` for frontend badge
+- `POST /api/admin/requests/{id}/approve` — idempotent; inserts user, sends welcome email, logs event
+- `POST /api/admin/requests/{id}/deny` — sends denial email, logs event
+- `ADMIN_EMAIL` env var added to `.env.example`
+
+**Infra needed before this is live:**
+- Add `ADMIN_EMAIL=ellengambrell@gmail.com` to `/home/deploy/warmcare/backend/.env` on Hetzner
+- Deploy: standard rsync + systemd restart (`warmcare.service`)
+
+**Gates remaining:**
+[Security: review] — new auth path (google_callback request flow), new admin routes, role column
+[AT Specialist: review] — no UI changes in this PR; no AT impact expected, but flag if /admin frontend is built
+[Director: copy review needed] — pending_approval error state copy on the frontend (not yet built)

@@ -117,7 +117,11 @@ follows this convention.
 
 ## Recent Changes
 
-<!-- Builder Agent updates after each meaningful commit -->
+[Builder 2026-05-12] commit 536e819 — Admin roles, user request queue, admin API.
+  users.role column (admin|user); ellengambrell@gmail.com = admin. user_requests + user_events
+  tables added. google_callback: single-user guard replaced with request/approval flow; email_verified
+  gap closed. GET /api/admin/requests, GET /api/admin/pending-count, POST approve/deny with audit
+  events. ADMIN_EMAIL env var. send_access_request_email, send_welcome_email, send_denial_email.
 
 ---
 

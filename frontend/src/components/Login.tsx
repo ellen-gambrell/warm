@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import type { AuthUser } from '../context/AuthContext'
 
-type Mode = 'loading' | 'google' | 'password'
+type Mode = 'loading' | 'google' | 'password' | 'request' | 'request_sent'
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 
@@ -119,10 +119,28 @@ export default function Login() {
   const [mode, setMode]         = useState<Mode>('loading')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
+  const [reqName, setReqName]   = useState('')
+  const [reqEmail, setReqEmail] = useState('')
+  const [reqMsg, setReqMsg]     = useState('')
   const [busy, setBusy]         = useState(false)
   const [error, setError]       = useState('')
 
   useEffect(() => {
+    // Check for OAuth redirect error codes
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (err === 'access_pending') {
+      setError('Your access request is pending approval. Check your email for an update.')
+    } else if (err === 'access_rejected') {
+      setError('Your access request was not approved. Contact us if you think this is a mistake.')
+    } else if (err === 'auth_failed') {
+      setError('Sign-in failed. Please try again.')
+    }
+    if (err) {
+      // Clean the URL so a reload doesn't re-show the error
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+
     fetch('/api/auth/status')
       .then(r => r.json())
       .then(() => setMode('google'))
@@ -155,6 +173,32 @@ export default function Login() {
     }
   }
 
+  async function doRequestAccess() {
+    if (!reqName.trim() || !reqEmail.trim()) return
+    setBusy(true); setError('')
+    try {
+      const res = await fetch('/api/auth/request-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: reqName.trim(), email: reqEmail.trim().toLowerCase(), message: reqMsg.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(res.status === 429 ? 'Too many requests. Try again later.' : 'Something went wrong.')
+      }
+      if (data.status === 'already_registered') {
+        setMode('google')
+        setError('That email already has an account. Sign in with Google above.')
+        return
+      }
+      setMode('request_sent')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (mode === 'loading') {
     return (
       <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
@@ -172,7 +216,10 @@ export default function Login() {
           warm.care
         </h1>
         <p style={{ color: 'var(--color-text-muted)', margin: '0.5rem 0 0', fontSize: '1rem' }}>
-          {mode === 'password' ? 'Sign in with password' : 'Sign in to continue'}
+          {mode === 'password' ? 'Sign in with password'
+            : mode === 'request' ? 'Request access'
+            : mode === 'request_sent' ? 'Request submitted'
+            : 'Sign in to continue'}
         </p>
       </div>
 
@@ -202,7 +249,94 @@ export default function Login() {
             >
               Sign in with password instead
             </button>
+            <button
+              style={S.link}
+              onClick={() => { setMode('request'); setError('') }}
+              aria-label="Request a warm.care account"
+            >
+              Don't have access? Request an account
+            </button>
           </>
+        )}
+
+        {/* ── Request access ── */}
+        {mode === 'request' && (
+          <>
+            <div>
+              <label htmlFor="req-name" style={S.label}>Your name</label>
+              <input
+                id="req-name"
+                type="text"
+                value={reqName}
+                onChange={e => setReqName(e.target.value)}
+                placeholder="Your name"
+                autoFocus
+                autoComplete="name"
+                style={S.input}
+                aria-label="Your name"
+              />
+            </div>
+            <div>
+              <label htmlFor="req-email" style={S.label}>Email address</label>
+              <input
+                id="req-email"
+                type="email"
+                value={reqEmail}
+                onChange={e => setReqEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                style={S.input}
+                aria-label="Email address"
+              />
+            </div>
+            <div>
+              <label htmlFor="req-msg" style={S.label}>How will you use warm.care? (optional)</label>
+              <textarea
+                id="req-msg"
+                value={reqMsg}
+                onChange={e => setReqMsg(e.target.value)}
+                placeholder="Tell us briefly how you'll use warm.care"
+                rows={3}
+                style={{ ...S.input, minHeight: 80, padding: '0.75rem 1.25rem', resize: 'vertical' as const }}
+                aria-label="How will you use warm.care"
+              />
+            </div>
+            <button
+              onClick={doRequestAccess}
+              disabled={busy || !reqName.trim() || !reqEmail.trim()}
+              style={S.btn(!busy && !!reqName.trim() && !!reqEmail.trim())}
+              aria-label="Submit access request"
+            >
+              {busy ? 'Submitting…' : 'Request Access'}
+            </button>
+            <button
+              style={S.link}
+              onClick={() => { setMode('google'); setError('') }}
+              aria-label="Back to sign in"
+            >
+              ← Back to sign in
+            </button>
+          </>
+        )}
+
+        {/* ── Request sent confirmation ── */}
+        {mode === 'request_sent' && (
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ fontSize: '2.5rem' }}>✅</div>
+            <p style={{ margin: 0, fontSize: '1.05rem', color: 'var(--color-text)' }}>
+              Your request has been submitted.
+            </p>
+            <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--color-text-muted)' }}>
+              We'll email you when it's been reviewed.
+            </p>
+            <button
+              style={S.link}
+              onClick={() => { setMode('google'); setError('') }}
+              aria-label="Back to sign in"
+            >
+              ← Back to sign in
+            </button>
+          </div>
         )}
 
         {/* ── Password (backup) ── */}

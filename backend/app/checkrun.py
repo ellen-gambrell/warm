@@ -67,28 +67,31 @@ def _third_wednesday(year: int, month: int) -> int:
 @router.get("/api/checkrun/data")
 def get_checkrun_data(year: int, month: int, user: dict = Depends(get_current_user)):
     db = get_db()
+    user_id = user["sub"]
 
     bills = db.execute(
-        "SELECT * FROM checkrun_bills WHERE active = 1 ORDER BY sort_order, rowid"
+        "SELECT * FROM checkrun_bills WHERE active = 1 AND user_id = ? ORDER BY sort_order, rowid",
+        (user_id,),
     ).fetchall()
 
     # All transactions for this month from the cache
-    month_str = f"{year}-{str(month).padStart(2,'0')}" if False else f"{year}-{month:02d}"
+    month_str = f"{year}-{month:02d}"
     txns = db.execute(
-        "SELECT * FROM checkrun_transactions WHERE date LIKE ? AND is_pending = 0",
-        (f"{month_str}-%",),
+        "SELECT * FROM checkrun_transactions WHERE date LIKE ? AND is_pending = 0 AND user_id = ?",
+        (f"{month_str}-%", user_id),
     ).fetchall()
 
-    # Manual overrides
+    # Manual overrides (scoped via bill_id which is already user-scoped)
     overrides_rows = db.execute(
-        "SELECT bill_id, cleared FROM checkrun_overrides WHERE year = ? AND month = ?",
-        (year, month),
+        "SELECT bill_id, cleared FROM checkrun_overrides WHERE year = ? AND month = ? AND user_id = ?",
+        (year, month, user_id),
     ).fetchall()
     overrides = {r["bill_id"]: bool(r["cleared"]) for r in overrides_rows}
 
     # Last sync time
     last_sync_row = db.execute(
-        "SELECT MAX(synced_at) AS ts FROM checkrun_transactions"
+        "SELECT MAX(synced_at) AS ts FROM checkrun_transactions WHERE user_id = ?",
+        (user_id,),
     ).fetchone()
     last_sync = last_sync_row["ts"] if last_sync_row else None
 
@@ -178,13 +181,14 @@ class IngestPayload(BaseModel):
 @router.post("/api/checkrun/ingest")
 def ingest(payload: IngestPayload, user: dict = Depends(get_current_user)):
     db = get_db()
+    user_id = user["sub"]
 
     if payload.transactions:
         db.executemany(
             """
             INSERT INTO checkrun_transactions
-                (id, date, amount, merchant, account, category, is_pending, synced_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                (id, date, amount, merchant, account, category, is_pending, synced_at, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
             ON CONFLICT(id) DO UPDATE SET
                 date       = excluded.date,
                 amount     = excluded.amount,
@@ -195,7 +199,7 @@ def ingest(payload: IngestPayload, user: dict = Depends(get_current_user)):
                 synced_at  = datetime('now')
             """,
             [
-                (t.id, t.date, t.amount, t.merchant, t.account, t.category, int(t.is_pending))
+                (t.id, t.date, t.amount, t.merchant, t.account, t.category, int(t.is_pending), user_id)
                 for t in payload.transactions
             ],
         )
@@ -205,8 +209,8 @@ def ingest(payload: IngestPayload, user: dict = Depends(get_current_user)):
             """
             INSERT INTO checkrun_bills
                 (id, sort_order, section, name, description, payment_method,
-                 expected_amount, due_day, comment, merchant_pattern)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 expected_amount, due_day, comment, merchant_pattern, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 sort_order      = excluded.sort_order,
                 section         = excluded.section,
@@ -221,7 +225,7 @@ def ingest(payload: IngestPayload, user: dict = Depends(get_current_user)):
             [
                 (b.id, b.sort_order, b.section, b.name, b.description,
                  b.payment_method, b.expected_amount, b.due_day,
-                 b.comment, b.merchant_pattern)
+                 b.comment, b.merchant_pattern, user_id)
                 for b in payload.bills
             ],
         )
@@ -248,13 +252,14 @@ class ToggleBody(BaseModel):
 @router.post("/api/checkrun/toggle")
 def toggle_override(body: ToggleBody, user: dict = Depends(get_current_user)):
     db = get_db()
+    user_id = user["sub"]
     db.execute(
         """
-        INSERT INTO checkrun_overrides (bill_id, year, month, cleared)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO checkrun_overrides (bill_id, year, month, cleared, user_id)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(bill_id, year, month) DO UPDATE SET cleared = excluded.cleared
         """,
-        (body.bill_id, body.year, body.month, int(body.cleared)),
+        (body.bill_id, body.year, body.month, int(body.cleared), user_id),
     )
     db.commit()
     db.close()
@@ -266,6 +271,10 @@ def toggle_override(body: ToggleBody, user: dict = Depends(get_current_user)):
 @router.get("/api/checkrun/last-sync")
 def last_sync(user: dict = Depends(get_current_user)):
     db = get_db()
-    row = db.execute("SELECT MAX(synced_at) AS ts FROM checkrun_transactions").fetchone()
+    user_id = user["sub"]
+    row = db.execute(
+        "SELECT MAX(synced_at) AS ts FROM checkrun_transactions WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
     db.close()
     return {"last_sync": row["ts"] if row else None}

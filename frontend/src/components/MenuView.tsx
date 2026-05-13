@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 interface MenuItem {
   id: string
@@ -36,6 +37,7 @@ function formatPublished(iso: string | null): string {
 }
 
 export default function MenuView() {
+  useTrackVisit('menu')
   const [menu, setMenu] = useState<MenuData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

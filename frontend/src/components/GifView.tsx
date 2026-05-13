@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 interface GifResult {
   id: string
@@ -20,6 +21,7 @@ const BTN: React.CSSProperties = {
 }
 
 export default function GifView() {
+  useTrackVisit('gif')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GifResult[]>([])
   const [configured, setConfigured] = useState(true)

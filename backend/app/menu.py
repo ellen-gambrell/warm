@@ -39,12 +39,23 @@ EDIT_ROLES = {"key_contact", "family_secondary", "homemaker"}
 
 # ── Shared data helper ─────────────────────────────────────────────────────────
 
-def _build_menu() -> dict:
+def _get_primary_user_id() -> str:
+    """Returns the first (primary) user's ID — used by supporter menu routes."""
+    db = get_db()
+    row = db.execute("SELECT id FROM users LIMIT 1").fetchone()
+    db.close()
+    return row["id"] if row else ""
+
+
+def _build_menu(user_id: str) -> dict:
     db = get_db()
     rows = db.execute(
-        "SELECT id, section, name FROM menu_items ORDER BY sort_order ASC, created_at ASC"
+        "SELECT id, section, name FROM menu_items WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC",
+        (user_id,),
     ).fetchall()
-    meta = db.execute("SELECT last_published FROM menu_meta WHERE id = 'singleton'").fetchone()
+    meta = db.execute(
+        "SELECT last_published FROM menu_meta WHERE user_id = ?", (user_id,)
+    ).fetchone()
     db.close()
 
     items_by_section: dict[str, list] = {s["key"]: [] for s in SECTIONS}
@@ -70,8 +81,8 @@ def _build_menu() -> dict:
 # ── Margaret's read-only endpoint ─────────────────────────────────────────────
 
 @router.get("/api/menu")
-def get_menu(_user: dict = Depends(get_current_user)):
-    return _build_menu()
+def get_menu(user: dict = Depends(get_current_user)):
+    return _build_menu(user["sub"])
 
 
 # ── Supporter read endpoint ────────────────────────────────────────────────────
@@ -79,7 +90,7 @@ def get_menu(_user: dict = Depends(get_current_user)):
 @router.get("/api/supporter/menu")
 def get_menu_supporter(supporter: dict = Depends(get_current_supporter)):
     _log(supporter["id"], "view:menu")
-    return _build_menu()
+    return _build_menu(_get_primary_user_id())
 
 
 # ── Supporter edit endpoints ────────────────────────────────────────────────────
@@ -106,10 +117,11 @@ def add_item(body: AddItemBody, supporter: dict = Depends(get_current_supporter)
         raise HTTPException(status_code=400, detail=f"Unknown section: {section}")
 
     item_id = str(uuid.uuid4())
+    primary_uid = _get_primary_user_id()
     db = get_db()
     db.execute(
-        "INSERT INTO menu_items (id, section, name) VALUES (?, ?, ?)",
-        (item_id, section, name),
+        "INSERT INTO menu_items (id, section, name, user_id) VALUES (?, ?, ?, ?)",
+        (item_id, section, name, primary_uid),
     )
     db.commit()
     db.close()
@@ -122,12 +134,15 @@ def add_item(body: AddItemBody, supporter: dict = Depends(get_current_supporter)
 def remove_item(item_id: str, supporter: dict = Depends(get_current_supporter)):
     _check_edit_permission(supporter)
 
+    primary_uid = _get_primary_user_id()
     db = get_db()
-    row = db.execute("SELECT id FROM menu_items WHERE id = ?", (item_id,)).fetchone()
+    row = db.execute(
+        "SELECT id FROM menu_items WHERE id = ? AND user_id = ?", (item_id, primary_uid)
+    ).fetchone()
     if not row:
         db.close()
         raise HTTPException(status_code=404, detail="Item not found.")
-    db.execute("DELETE FROM menu_items WHERE id = ?", (item_id,))
+    db.execute("DELETE FROM menu_items WHERE id = ? AND user_id = ?", (item_id, primary_uid))
     db.commit()
     db.close()
 
@@ -142,8 +157,9 @@ def clear_section(section: str, supporter: dict = Depends(get_current_supporter)
     if section not in VALID_SECTIONS:
         raise HTTPException(status_code=400, detail=f"Unknown section: {section}")
 
+    primary_uid = _get_primary_user_id()
     db = get_db()
-    db.execute("DELETE FROM menu_items WHERE section = ?", (section,))
+    db.execute("DELETE FROM menu_items WHERE section = ? AND user_id = ?", (section, primary_uid))
     db.commit()
     db.close()
 
@@ -156,11 +172,14 @@ def publish_menu(supporter: dict = Depends(get_current_supporter)):
     _check_edit_permission(supporter)
 
     now_iso = datetime.now(timezone.utc).isoformat()
+    primary_uid = _get_primary_user_id()
     db = get_db()
     db.execute(
-        "INSERT INTO menu_meta (id, last_published) VALUES ('singleton', ?) "
-        "ON CONFLICT(id) DO UPDATE SET last_published = excluded.last_published",
-        (now_iso,),
+        """
+        INSERT INTO menu_meta (user_id, last_published) VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET last_published = excluded.last_published
+        """,
+        (primary_uid, now_iso),
     )
     db.commit()
     db.close()

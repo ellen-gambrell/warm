@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import DocumentViewer from './DocumentViewer'
 import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../context/AuthContext'
+import { useTrackVisit } from '../hooks/useTrackVisit'
 
 const ACCEPTED = 'application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif'
 
@@ -67,6 +68,7 @@ const MD_COMPONENTS = {
 }
 
 export default function Drive() {
+  useTrackVisit('drive')
   const { user } = useAuth()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)

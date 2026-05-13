@@ -4,6 +4,32 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## [Builder 2026-05-13] PR #7 "Fair winds" — deployed ✅
+
+**Branch:** `feature/error-states-profile-onboarding-cards`
+**Commit:** `85ac057` (rebased onto `174fd93` — PR #6 merge)
+**Status:** Live — 200 OK, both workers up
+
+### What's live
+
+| Feature | Details |
+|---------|---------|
+| Error states | Drive: "not connected" → Settings link; load failure → retry button. GifView: search error message instead of silent fail. |
+| Input profile selector | `users.input_profile` column; `PATCH /api/auth/preferences`; ProfileContext syncs on change + sets `data-input-profile` on `<html>`; Settings radio group (stylus / voice / switch / sip-and-puff / gaze) |
+| Onboarding rewrite | 3-step welcome → profile → ready flow; all inline CSS (Tailwind removed); profile selection wires into ProfileContext |
+| Custom AI cards | `subscriptions` + `custom_cards` tables; CRUD + manual refresh at `/api/cards`; `require_paid` dep; Gemini 2.0 Flash + Google Search grounding; `_derive_tile_name()` for short tile names; `cron_cards.py` runner; Settings "My Cards" UI (3-card limit); Home grid tiles with detail overlay; Supporter read-only Cards tab via `/api/supporter/cards` |
+
+### Cron setup needed (not yet wired)
+
+`backend/cron_cards.py` is deployed but not scheduled. To run cards hourly:
+```bash
+ssh hetzner 'crontab -e'
+# Add:
+0 * * * * cd /home/deploy/warmcare && /home/deploy/warmcare/venv/bin/python backend/cron_cards.py >> /var/log/warmcare_cards.log 2>&1
+```
+
+---
+
 ## CEO/Builder 2026-05-13 — multi-user reconciliation complete
 
 **Agent:** CEO (Builder) · **Status:** Committed, pushed to `fix/admin-seed-idempotent`

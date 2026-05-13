@@ -84,7 +84,8 @@ def init_db() -> None:
             comment         TEXT,
             merchant_pattern TEXT,      -- case-insensitive substring match against MM merchant
             active          INTEGER NOT NULL DEFAULT 1,
-            created_at      TEXT DEFAULT (datetime('now'))
+            created_at      TEXT DEFAULT (datetime('now')),
+            user_id         TEXT
         );
 
         -- Check Run: Monarch Money transaction cache (pushed by local sync)
@@ -96,15 +97,18 @@ def init_db() -> None:
             account     TEXT,
             category    TEXT,
             is_pending  INTEGER NOT NULL DEFAULT 0,
-            synced_at   TEXT DEFAULT (datetime('now'))
+            synced_at   TEXT DEFAULT (datetime('now')),
+            user_id     TEXT
         );
 
         -- Check Run: manual cleared/uncleared overrides per bill per month
+        -- user_id scopes overrides per user; bill_ids are UUIDs so (bill_id,year,month) is already unique per user
         CREATE TABLE IF NOT EXISTS checkrun_overrides (
             bill_id  TEXT NOT NULL,
             year     INTEGER NOT NULL,
             month    INTEGER NOT NULL,
             cleared  INTEGER NOT NULL,
+            user_id  TEXT,
             PRIMARY KEY (bill_id, year, month)
         );
 
@@ -158,12 +162,30 @@ def init_db() -> None:
             name       TEXT NOT NULL,
             sort_order INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
+            updated_at TEXT DEFAULT (datetime('now')),
+            user_id    TEXT
         );
 
         CREATE TABLE IF NOT EXISTS menu_meta (
             id              TEXT PRIMARY KEY DEFAULT 'singleton',
-            last_published  TEXT
+            last_published  TEXT,
+            user_id         TEXT
+        );
+
+        -- ── Usage metrics ─────────────────────────────────────────────────────
+
+        CREATE TABLE IF NOT EXISTS daily_message_counts (
+            date  TEXT PRIMARY KEY,   -- 'YYYY-MM-DD'
+            count INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS user_visit_counts (
+            id              TEXT PRIMARY KEY,
+            user_id         TEXT NOT NULL REFERENCES users(id),
+            feature         TEXT NOT NULL,
+            visit_count     INTEGER NOT NULL DEFAULT 0,
+            last_visited_at TEXT,
+            UNIQUE(user_id, feature)
         );
 
         -- ── Reminders ─────────────────────────────────────────────────────────
@@ -226,10 +248,36 @@ def init_db() -> None:
     except Exception:
         pass  # Column already exists
 
-    # Seed: promote ellengambrell@gmail.com to admin (safe to re-run)
+    # Migrate: add user_id to shared tables (multi-user isolation)
+    for tbl in ("checkrun_bills", "checkrun_transactions", "checkrun_overrides",
+                "menu_items", "menu_meta"):
+        try:
+            conn.execute(f"ALTER TABLE {tbl} ADD COLUMN user_id TEXT")
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
+    # Back-fill: assign existing rows to the first (primary) user
+    first_user = conn.execute("SELECT id FROM users ORDER BY rowid LIMIT 1").fetchone()
+    if first_user:
+        uid = first_user["id"]
+        for tbl in ("checkrun_bills", "checkrun_transactions", "checkrun_overrides",
+                    "menu_items", "menu_meta"):
+            conn.execute(
+                f"UPDATE {tbl} SET user_id = ? WHERE user_id IS NULL", (uid,)
+            )
+        conn.commit()
+
+    # Seed: ensure ellengambrell@gmail.com exists as admin (idempotent)
+    # INSERT OR IGNORE creates the row if absent; UPDATE promotes if somehow demoted.
+    # The UPDATE-only approach was a bug — it silently no-ops if the row doesn't exist yet.
+    conn.execute("""
+        INSERT OR IGNORE INTO users (id, name, email, role)
+        VALUES (lower(hex(randomblob(16))), 'Ellen', 'ellengambrell@gmail.com', 'admin')
+    """)
     conn.execute("""
         UPDATE users SET role = 'admin'
-        WHERE email = 'ellengambrell@gmail.com' AND role = 'user'
+        WHERE email = 'ellengambrell@gmail.com'
     """)
     conn.commit()
 

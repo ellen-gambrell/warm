@@ -18,7 +18,7 @@ interface AccessRequest {
   name: string
   email: string
   message: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'denied'
   requested_at: number
   reviewed_at: number | null
 }
@@ -160,7 +160,7 @@ const S = {
     fontWeight: 600,
     background: status === 'approved'
       ? 'var(--color-accent)'
-      : status === 'rejected'
+      : status === 'denied'
         ? 'var(--color-danger, #c0392b)'
         : 'var(--color-surface-raised)',
     color: status === 'pending' ? 'var(--color-text-muted)' : '#fff',
@@ -240,16 +240,16 @@ export default function AdminPortal() {
       .finally(() => setLoading(false))
   }, [tab])
 
-  async function doAction(reqId: string, action: 'approve' | 'reject') {
+  async function doAction(reqId: string, action: 'approve' | 'deny') {
     const res = await fetch(`/api/admin/requests/${reqId}/${action}`, {
       method: 'POST',
       credentials: 'include',
     })
     if (res.ok) {
       setRequests(prev =>
-        prev.map(r => r.id === reqId ? { ...r, status: action === 'approve' ? 'approved' : 'rejected' } : r)
+        prev.map(r => r.id === reqId ? { ...r, status: action === 'approve' ? 'approved' : 'denied' } : r)
       )
-      setActionMsg(prev => ({ ...prev, [reqId]: action === 'approve' ? 'Approved' : 'Rejected' }))
+      setActionMsg(prev => ({ ...prev, [reqId]: action === 'approve' ? 'Approved' : 'Denied' }))
     }
   }
 
@@ -320,10 +320,10 @@ export default function AdminPortal() {
                       </button>
                       <button
                         style={S.rejectBtn}
-                        onClick={() => doAction(r.id, 'reject')}
-                        aria-label={`Reject request from ${r.name}`}
+                        onClick={() => doAction(r.id, 'deny')}
+                        aria-label={`Deny request from ${r.name}`}
                       >
-                        Reject
+                        Deny
                       </button>
                     </>
                   )}

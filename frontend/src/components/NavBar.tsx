@@ -10,6 +10,7 @@
  */
 
 import { useNav } from '../context/NavContext'
+import { navigate } from '../App'
 
 export const NAVBAR_HEIGHT = 80 // px — import in any view that needs to subtract it
 
@@ -70,6 +71,17 @@ export default function NavBar() {
         }}
       >
         ← Back
+      </button>
+
+      <button
+        onClick={() => navigate('/')}
+        aria-label="Go home"
+        style={{
+          ...BTN_BASE,
+          color: 'var(--color-text)',
+        }}
+      >
+        🏠 Home
       </button>
 
       <button

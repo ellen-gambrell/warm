@@ -178,7 +178,7 @@ export default function Home() {
           {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
         <h1 style={{ fontSize: 'var(--fs-2xl)', fontWeight: 700, color: 'var(--color-text)', margin: '4px 0 0' }}>
-          Hi, {name}.
+          {user?.profile_emoji ?? '🙂'} Hi, {name}.
         </h1>
       </div>
 

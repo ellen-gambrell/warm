@@ -307,6 +307,12 @@ def init_db() -> None:
     except Exception:
         pass  # Column already exists
 
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN profile_emoji TEXT DEFAULT '🙂'")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
     # Migrate: add user_id to shared tables (multi-user isolation)
     for tbl in ("checkrun_bills", "checkrun_transactions", "checkrun_overrides",
                 "menu_items", "menu_meta"):

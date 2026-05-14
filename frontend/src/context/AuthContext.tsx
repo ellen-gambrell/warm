@@ -30,6 +30,7 @@ export interface AuthUser {
   first_name?: string | null
   last_name?: string | null
   pronouns?: string | null
+  profile_emoji?: string | null
 }
 
 interface AuthContextValue {
@@ -99,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           first_name: fresh.first_name ?? null,
           last_name: fresh.last_name ?? null,
           pronouns: fresh.pronouns ?? null,
+          profile_emoji: fresh.profile_emoji ?? '🙂',
         }
         setUser(updated)
         writeCache(updated)
@@ -131,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       first_name: profile.first_name ?? null,
       last_name: profile.last_name ?? null,
       pronouns: profile.pronouns ?? null,
+      profile_emoji: profile.profile_emoji ?? '🙂',
     }
     writeCache(user)
     setUser(user)

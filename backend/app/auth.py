@@ -172,7 +172,7 @@ def get_me(current: dict = Depends(get_current_user)):
     db = get_db()
     try:
         user = db.execute(
-            "SELECT id, name, email, role, input_profile, first_name, last_name, pronouns FROM users WHERE id = ?",
+            "SELECT id, name, email, role, input_profile, first_name, last_name, pronouns, profile_emoji FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
         if not user:
@@ -186,6 +186,7 @@ def get_me(current: dict = Depends(get_current_user)):
             "first_name": user["first_name"],
             "last_name": user["last_name"],
             "pronouns": user["pronouns"],
+            "profile_emoji": user["profile_emoji"] or "🙂",
         }
     finally:
         db.close()
@@ -226,6 +227,7 @@ class ProfileBody(BaseModel):
     last_name: Optional[str] = None
     pronouns: Optional[str] = None
     input_profile: Optional[str] = None
+    profile_emoji: Optional[str] = None
 
 
 @router.patch("/profile")
@@ -244,6 +246,8 @@ def update_profile(body: ProfileBody, current: dict = Depends(get_current_user))
             if body.input_profile not in _VALID_PROFILES:
                 raise HTTPException(400, f"Invalid input_profile. Must be one of: {', '.join(_VALID_PROFILES)}")
             updates.append(("input_profile", body.input_profile))
+        if body.profile_emoji is not None:
+            updates.append(("profile_emoji", body.profile_emoji.strip() or "🙂"))
 
         if updates:
             set_clause = ", ".join(f"{col} = ?" for col, _ in updates)
@@ -252,7 +256,7 @@ def update_profile(body: ProfileBody, current: dict = Depends(get_current_user))
             db.commit()
 
         user = db.execute(
-            "SELECT id, name, email, role, input_profile, first_name, last_name, pronouns FROM users WHERE id = ?",
+            "SELECT id, name, email, role, input_profile, first_name, last_name, pronouns, profile_emoji FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
         return {
@@ -264,6 +268,7 @@ def update_profile(body: ProfileBody, current: dict = Depends(get_current_user))
             "first_name": user["first_name"],
             "last_name": user["last_name"],
             "pronouns": user["pronouns"],
+            "profile_emoji": user["profile_emoji"] or "🙂",
         }
     finally:
         db.close()

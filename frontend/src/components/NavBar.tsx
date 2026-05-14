@@ -15,8 +15,8 @@ import { navigate } from '../App'
 export const NAVBAR_HEIGHT = 80 // px — import in any view that needs to subtract it
 
 const BTN_BASE: React.CSSProperties = {
+  flex: 1,
   minHeight: 64,
-  minWidth: 80,
   borderRadius: 14,
   border: '2px solid var(--color-border)',
   background: 'var(--color-surface)',
@@ -29,8 +29,6 @@ const BTN_BASE: React.CSSProperties = {
   justifyContent: 'center',
   gap: 6,
   transition: 'opacity 0.15s',
-  // Ensure the button always occupies the same space whether enabled or disabled
-  flexShrink: 0,
 }
 
 export default function NavBar() {

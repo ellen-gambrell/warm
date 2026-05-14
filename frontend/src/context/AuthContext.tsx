@@ -27,6 +27,9 @@ export interface AuthUser {
   name: string
   email: string
   role: string
+  first_name?: string | null
+  last_name?: string | null
+  pronouns?: string | null
 }
 
 interface AuthContextValue {
@@ -34,6 +37,7 @@ interface AuthContextValue {
   isLoading: boolean
   login: (profile: AuthUser) => void
   logout: () => void
+  updateUser: (patch: Partial<AuthUser>) => void
 }
 
 // ── Cache — stores {id, name, email} ONLY — no JWT ────────────────────────────
@@ -87,7 +91,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/auth/me', { credentials: 'include' })
       if (res.ok) {
         const fresh = (await res.json()) as AuthUser
-        const updated: AuthUser = { id: fresh.id, name: fresh.name, email: fresh.email, role: fresh.role ?? 'user' }
+        const updated: AuthUser = {
+          id: fresh.id,
+          name: fresh.name,
+          email: fresh.email,
+          role: fresh.role ?? 'user',
+          first_name: fresh.first_name ?? null,
+          last_name: fresh.last_name ?? null,
+          pronouns: fresh.pronouns ?? null,
+        }
         setUser(updated)
         writeCache(updated)
       } else {
@@ -111,9 +123,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [reVerify])
 
   function login(profile: AuthUser) {
-    const user: AuthUser = { id: profile.id, name: profile.name, email: profile.email, role: profile.role ?? 'user' }
+    const user: AuthUser = {
+      id: profile.id,
+      name: profile.name,
+      email: profile.email,
+      role: profile.role ?? 'user',
+      first_name: profile.first_name ?? null,
+      last_name: profile.last_name ?? null,
+      pronouns: profile.pronouns ?? null,
+    }
     writeCache(user)
     setUser(user)
+  }
+
+  function updateUser(patch: Partial<AuthUser>) {
+    setUser(prev => {
+      if (!prev) return prev
+      const updated = { ...prev, ...patch }
+      writeCache(updated)
+      return updated
+    })
   }
 
   function logout() {
@@ -124,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

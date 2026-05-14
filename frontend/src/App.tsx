@@ -25,6 +25,7 @@ import AdminPortal from './components/AdminPortal'
 import AdminPanel from './components/AdminPanel'
 import BillsView from './components/BillsView'
 import Privacy from './components/Privacy'
+import ProfileView from './components/ProfileView'
 
 /**
  * SPA navigation — pushes to browser history AND updates the NavContext stack
@@ -140,6 +141,7 @@ function AppShell() {
   // ── Authenticated screens — NavBar always rendered above the view ──
   let view: React.ReactNode
   if (path === '/admin')           view = <AdminPanel />
+  else if (path === '/profile')    view = <ProfileView />
   else if (path === '/menu')       view = <MenuView />
   else if (path === '/chat')       view = <ChatView />
   else if (path === '/gif')        view = <GifView />

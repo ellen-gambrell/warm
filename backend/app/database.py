@@ -288,6 +288,25 @@ def init_db() -> None:
     except Exception:
         pass  # Column already exists
 
+    # Migrate: add profile name fields
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN first_name TEXT")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN last_name TEXT")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN pronouns TEXT")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
     # Migrate: add user_id to shared tables (multi-user isolation)
     for tbl in ("checkrun_bills", "checkrun_transactions", "checkrun_overrides",
                 "menu_items", "menu_meta"):

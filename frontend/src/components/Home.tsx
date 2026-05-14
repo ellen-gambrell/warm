@@ -17,6 +17,7 @@ const SHORTCUTS = [
   { id: 'candy',     label: 'Candy Crush',   icon: '🍬', color: '#ff6b9d',               href: 'https://app.appsflyer.com/id850417475?pid=king-media&c=kingWeb' },
   { id: 'solitaire', label: 'Solitaire',     icon: '🃏', color: '#4caf82',               href: 'https://solitaired.com' },
   { id: 'settings',  label: 'Settings',      icon: '⚙️', color: 'var(--color-text-muted)', href: '/settings' },
+  { id: 'profile',   label: 'Profile',       icon: '👤', color: 'var(--color-text-muted)', href: '/profile' },
 ]
 
 const ADMIN_COLOR = '#c0392b'

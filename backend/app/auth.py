@@ -172,7 +172,8 @@ def get_me(current: dict = Depends(get_current_user)):
     db = get_db()
     try:
         user = db.execute(
-            "SELECT id, name, email, role, input_profile FROM users WHERE id = ?", (user_id,)
+            "SELECT id, name, email, role, input_profile, first_name, last_name, pronouns FROM users WHERE id = ?",
+            (user_id,),
         ).fetchone()
         if not user:
             raise HTTPException(404, "User not found.")
@@ -182,6 +183,9 @@ def get_me(current: dict = Depends(get_current_user)):
             "email": user["email"],
             "role": user["role"],
             "input_profile": user["input_profile"] or "stylus",
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "pronouns": user["pronouns"],
         }
     finally:
         db.close()
@@ -211,6 +215,56 @@ def update_preferences(body: PreferencesBody, current: dict = Depends(get_curren
             )
             db.commit()
         return {"status": "ok"}
+    finally:
+        db.close()
+
+
+# ── Profile update ────────────────────────────────────────────────────────────
+
+class ProfileBody(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    pronouns: Optional[str] = None
+    input_profile: Optional[str] = None
+
+
+@router.patch("/profile")
+def update_profile(body: ProfileBody, current: dict = Depends(get_current_user)):
+    user_id = current["sub"]
+    db = get_db()
+    try:
+        updates: list[tuple] = []
+        if body.first_name is not None:
+            updates.append(("first_name", body.first_name.strip() or None))
+        if body.last_name is not None:
+            updates.append(("last_name", body.last_name.strip() or None))
+        if body.pronouns is not None:
+            updates.append(("pronouns", body.pronouns.strip() or None))
+        if body.input_profile is not None:
+            if body.input_profile not in _VALID_PROFILES:
+                raise HTTPException(400, f"Invalid input_profile. Must be one of: {', '.join(_VALID_PROFILES)}")
+            updates.append(("input_profile", body.input_profile))
+
+        if updates:
+            set_clause = ", ".join(f"{col} = ?" for col, _ in updates)
+            values = [val for _, val in updates] + [user_id]
+            db.execute(f"UPDATE users SET {set_clause} WHERE id = ?", values)
+            db.commit()
+
+        user = db.execute(
+            "SELECT id, name, email, role, input_profile, first_name, last_name, pronouns FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        return {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "role": user["role"],
+            "input_profile": user["input_profile"] or "stylus",
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "pronouns": user["pronouns"],
+        }
     finally:
         db.close()
 

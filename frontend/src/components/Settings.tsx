@@ -12,18 +12,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useProfile } from '../context/ProfileContext'
-import type { AccessProfile } from '../types'
-import { PROFILE_LABELS, PROFILE_DESCRIPTIONS } from '../types'
-
-const ALL_PROFILES: AccessProfile[] = ['stylus', 'voice', 'switch', 'gaze', 'touch']
-const PROFILE_EMOJIS: Record<AccessProfile, string> = {
-  stylus: '✏️',
-  voice: '🎙️',
-  switch: '💨',
-  gaze: '👁️',
-  touch: '👆',
-}
-
 // ── Supporter management types ─────────────────────────────────────────────────
 
 interface SupporterAccount {
@@ -1318,58 +1306,6 @@ export default function Settings() {
           </button>
         </div>
 
-      </div>
-
-      {/* ── Section: Input Profile ── */}
-      <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-        Input Profile
-      </h2>
-      <p style={{ margin: '0 0 14px', fontSize: 15, color: 'var(--color-text-muted)' }}>
-        How you control your device. Shapes touch target sizes and navigation. You can change this any time.
-      </p>
-      <div
-        role="radiogroup"
-        aria-label="Input profile"
-        style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}
-      >
-        {ALL_PROFILES.map(p => {
-          const active = profile.accessProfile === p
-          return (
-            <button
-              key={p}
-              role="radio"
-              aria-checked={active}
-              onClick={() => setProfile({ ...profile, accessProfile: p })}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                padding: '14px 18px',
-                borderRadius: 18,
-                border: active ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
-                background: active ? 'var(--color-surface-raised)' : 'var(--color-surface)',
-                cursor: 'pointer',
-                minHeight: 72,
-                fontFamily: 'inherit',
-                textAlign: 'left',
-                width: '100%',
-              }}
-            >
-              <span style={{ fontSize: 28, flexShrink: 0 }} aria-hidden="true">
-                {PROFILE_EMOJIS[p]}
-              </span>
-              <span style={{ flex: 1 }}>
-                <span style={{ display: 'block', fontSize: 17, fontWeight: 700, color: active ? 'var(--color-accent)' : 'var(--color-text)' }}>
-                  {PROFILE_LABELS[p]}
-                  {active && <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 700 }}>✓</span>}
-                </span>
-                <span style={{ display: 'block', fontSize: 13, color: 'var(--color-text-muted)', marginTop: 2 }}>
-                  {PROFILE_DESCRIPTIONS[p]}
-                </span>
-              </span>
-            </button>
-          )
-        })}
       </div>
 
       {/* ── Sign out ── */}

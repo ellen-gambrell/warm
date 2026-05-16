@@ -1281,7 +1281,7 @@ export default function Settings() {
             Password
           </p>
           <p style={{ margin: '0 0 16px', fontSize: 15, color: 'var(--color-text-muted)' }}>
-            Send a link to <strong>{user.email}</strong> to set or change your password.
+            We'll email a password link to <strong>{user.email}</strong>.
           </p>
           {pwNotice && (
             <p style={{ margin: '0 0 12px', fontSize: 15, color: 'var(--color-text-muted)' }}>

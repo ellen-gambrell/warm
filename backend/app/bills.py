@@ -11,6 +11,7 @@ GET    /api/bills/check        → query Gmail for new bills per configured send
 """
 
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -19,7 +20,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from .auth import get_current_user
 from .database import get_db
@@ -29,6 +30,21 @@ router = APIRouter(prefix="/api/bills")
 VALID_CATEGORIES = {"electric", "gas", "water", "phone", "internet", "other"}
 
 GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me/"
+
+# Basic RFC5321-compatible email pattern — rejects injection payloads
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+
+def _validate_email(v: Optional[str]) -> Optional[str]:
+    """Validate sender_email format. Returns stripped value or None."""
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        return None
+    if not _EMAIL_RE.match(v):
+        raise ValueError("sender_email must be a valid email address.")
+    return v
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -140,19 +156,29 @@ def _gmail_search(query: str, token: str, max_results: int = 10) -> list:
 # ── Pydantic models ────────────────────────────────────────────────────────────
 
 class BillBody(BaseModel):
-    category:        str = "other"
-    company_name:    str
-    phone_number:    Optional[str] = None
-    customer_number: Optional[str] = None
-    sender_email:    Optional[str] = None
+    category:        str            = "other"
+    company_name:    str            = Field(..., max_length=120)
+    phone_number:    Optional[str]  = Field(None, max_length=30)
+    customer_number: Optional[str]  = Field(None, max_length=80)
+    sender_email:    Optional[str]  = Field(None, max_length=254)
+
+    @field_validator("sender_email", mode="before")
+    @classmethod
+    def validate_sender_email(cls, v):
+        return _validate_email(v)
 
 
 class BillPatch(BaseModel):
     category:        Optional[str] = None
-    company_name:    Optional[str] = None
-    phone_number:    Optional[str] = None
-    customer_number: Optional[str] = None
-    sender_email:    Optional[str] = None
+    company_name:    Optional[str] = Field(None, max_length=120)
+    phone_number:    Optional[str] = Field(None, max_length=30)
+    customer_number: Optional[str] = Field(None, max_length=80)
+    sender_email:    Optional[str] = Field(None, max_length=254)
+
+    @field_validator("sender_email", mode="before")
+    @classmethod
+    def validate_sender_email(cls, v):
+        return _validate_email(v)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
@@ -212,11 +238,11 @@ def create_bill(body: BillBody, user: dict = Depends(get_current_user)):
 
 
 @router.patch("/{bill_id}")
-def update_bill(bill_id: str, body: BillPatch, user: dict = Depends(get_current_user)):
+def update_bill(bill_id: uuid.UUID, body: BillPatch, user: dict = Depends(get_current_user)):
     db = get_db()
     row = db.execute(
         "SELECT id FROM bills WHERE id = ? AND user_id = ?",
-        (bill_id, user["sub"]),
+        (str(bill_id), user["sub"]),
     ).fetchone()
     if not row:
         db.close()
@@ -238,9 +264,6 @@ def update_bill(bill_id: str, body: BillPatch, user: dict = Depends(get_current_
             raise HTTPException(400, "Company name cannot be empty.")
         updates.append("company_name = ?"); vals.append(name)
 
-    # Optional nullable fields — explicit None in patch means "clear the field"
-    # We use a sentinel: if the field is present in the JSON payload, update it.
-    # Pydantic will pass None for missing optional fields, so we check via model_fields_set.
     for field, col in [
         ("phone_number",    "phone_number"),
         ("customer_number", "customer_number"),
@@ -252,21 +275,21 @@ def update_bill(bill_id: str, body: BillPatch, user: dict = Depends(get_current_
 
     if updates:
         updates.append("updated_at = datetime('now')")
-        vals.append(bill_id)
+        vals.append(str(bill_id))
         db.execute(f"UPDATE bills SET {', '.join(updates)} WHERE id = ?", vals)
         db.commit()
 
-    updated = db.execute("SELECT * FROM bills WHERE id = ?", (bill_id,)).fetchone()
+    updated = db.execute("SELECT * FROM bills WHERE id = ?", (str(bill_id),)).fetchone()
     db.close()
     return _row_to_dict(updated)
 
 
 @router.delete("/{bill_id}")
-def delete_bill(bill_id: str, user: dict = Depends(get_current_user)):
+def delete_bill(bill_id: uuid.UUID, user: dict = Depends(get_current_user)):
     db = get_db()
     db.execute(
         "DELETE FROM bills WHERE id = ? AND user_id = ?",
-        (bill_id, user["sub"]),
+        (str(bill_id), user["sub"]),
     )
     db.commit()
     db.close()
@@ -305,10 +328,9 @@ def check_bills(user: dict = Depends(get_current_user)):
         company_name = bill["company_name"]
         last_seen    = bill["last_bill_seen_at"]
 
-        # Build Gmail query: from sender, optionally after last seen date
-        query = f"from:{sender}"
+        # Build Gmail query: quote sender to prevent injection, optionally filter by date
+        query = f'from:"{sender}"'
         if last_seen:
-            # Gmail 'after:' filter uses epoch seconds
             try:
                 import datetime as dt
                 ts = dt.datetime.fromisoformat(last_seen)
@@ -320,7 +342,6 @@ def check_bills(user: dict = Depends(get_current_user)):
         messages = _gmail_search(query, token, max_results=10)
         new_count = len(messages)
 
-        # Update last_bill_seen_at regardless of whether new messages were found
         db2 = get_db()
         db2.execute(
             "UPDATE bills SET last_bill_seen_at = ?, updated_at = datetime('now') WHERE id = ?",

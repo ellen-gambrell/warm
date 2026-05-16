@@ -45,9 +45,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "default-src 'self'; "
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: https://media.giphy.com https://media0.giphy.com "
-        "https://media1.giphy.com https://media2.giphy.com https://media3.giphy.com "
-        "https://media4.giphy.com; "
+        "img-src 'self' data: https://media.tenor.com https://c.tenor.com; "
         "connect-src 'self' https://generativelanguage.googleapis.com; "
         "frame-ancestors 'none';"
     )

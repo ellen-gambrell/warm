@@ -282,6 +282,7 @@ interface BillCardProps {
 
 function BillCard({ bill, newCount, onEdit, onDelete }: BillCardProps) {
   const [copied, setCopied] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   async function copyCustomerNumber() {
     if (!bill.customer_number) return
@@ -426,20 +427,32 @@ function BillCard({ bill, newCount, onEdit, onDelete }: BillCardProps) {
         >
           Edit
         </button>
-        <button
-          onClick={() => onDelete(bill)}
-          aria-label={`Delete ${bill.company_name}`}
-          style={{
-            ...BTN,
-            minWidth: 64,
-            background: 'transparent',
-            color: 'var(--color-danger)',
-            fontSize: 22,
-            padding: 0,
-          }}
-        >
-          ×
-        </button>
+        {confirmingDelete ? (
+          <>
+            <button
+              onClick={() => onDelete(bill)}
+              aria-label={`Confirm delete ${bill.company_name}`}
+              style={{ ...BTN, flex: 1, background: 'var(--color-danger)', color: '#fff', fontSize: 'var(--fs-sm)', fontWeight: 700 }}
+            >
+              Delete
+            </button>
+            <button
+              onClick={() => setConfirmingDelete(false)}
+              aria-label="Cancel delete"
+              style={{ ...BTN, flex: 1, background: 'var(--color-surface-raised)', border: '2px solid var(--color-border)', color: 'var(--color-text)', fontSize: 'var(--fs-sm)' }}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setConfirmingDelete(true)}
+            aria-label={`Delete ${bill.company_name}`}
+            style={{ ...BTN, minWidth: 64, background: 'transparent', color: 'var(--color-danger)', fontSize: 22, padding: 0 }}
+          >
+            ×
+          </button>
+        )}
       </div>
     </div>
   )
@@ -554,7 +567,6 @@ export default function BillsView({ onOpen }: BillsViewProps) {
   }
 
   async function handleDelete(bill: Bill) {
-    if (!window.confirm(`Delete ${bill.company_name}?`)) return
     await fetch(`/api/bills/${bill.id}`, { method: 'DELETE', ...FETCH_OPTS })
     await loadBills()
   }

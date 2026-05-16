@@ -29,7 +29,7 @@ import jwt as pyjwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .database import get_db
 from .email_service import send_access_request_email, send_password_set_email
@@ -223,11 +223,11 @@ def update_preferences(body: PreferencesBody, current: dict = Depends(get_curren
 # ── Profile update ────────────────────────────────────────────────────────────
 
 class ProfileBody(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    pronouns: Optional[str] = None
-    input_profile: Optional[str] = None
-    profile_emoji: Optional[str] = None
+    first_name:    Optional[str] = Field(None, max_length=80)
+    last_name:     Optional[str] = Field(None, max_length=80)
+    pronouns:      Optional[str] = Field(None, max_length=40)
+    input_profile: Optional[str] = Field(None, max_length=20)
+    profile_emoji: Optional[str] = Field(None, max_length=10)
 
 
 @router.patch("/profile")

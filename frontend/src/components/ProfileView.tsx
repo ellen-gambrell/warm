@@ -176,6 +176,7 @@ export default function ProfileView() {
   const [firstName, setFirstName] = useState(user?.first_name ?? googleFirst)
   const [lastName, setLastName] = useState(user?.last_name ?? googleLast)
   const [pronouns, setPronouns] = useState(user?.pronouns ?? '')
+  const [pronounsChanged, setPronounsChanged] = useState(false)
   const [emoji, setEmoji] = useState(user?.profile_emoji ?? '🙂')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [emojiSearch, setEmojiSearch] = useState('')
@@ -213,7 +214,8 @@ export default function ProfileView() {
         body: JSON.stringify({
           first_name: firstName.trim() || null,
           last_name: lastName.trim() || null,
-          pronouns: pronouns.trim() || null,
+          // Only send pronouns if the user explicitly changed them this session
+          ...(pronounsChanged ? { pronouns: pronouns.trim() || null } : {}),
           input_profile: profile.accessProfile,
           profile_emoji: emoji,
         }),
@@ -424,7 +426,7 @@ export default function ProfileView() {
                 name="pronouns"
                 value={opt}
                 checked={checked}
-                onChange={() => setPronouns(opt)}
+                onChange={() => { setPronouns(opt); setPronounsChanged(true) }}
                 style={{ width: 20, height: 20, flexShrink: 0 }}
               />
               <span style={{

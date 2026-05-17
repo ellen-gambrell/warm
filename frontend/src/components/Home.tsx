@@ -93,7 +93,7 @@ export default function Home() {
   const { user, logout } = useAuth()
   // Use the server-authoritative name from Google OAuth. Fall back to the
   // locally-stored profile name (set during onboarding) or a generic greeting.
-  const name = user?.name?.split(' ')[0] || profile.name || 'there'
+  const name = user?.first_name || user?.name?.split(' ')[0] || profile.name || 'there'
   const isAdmin = user?.role === 'admin'
 
   // Admin: fetch pending request count to show a badge on the Admin tile.

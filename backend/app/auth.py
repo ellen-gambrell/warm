@@ -517,11 +517,24 @@ class PasswordLoginBody(BaseModel):
     password: str
 
 
+_RATE_LIMIT_MAX      = 10    # max failed attempts
+_RATE_LIMIT_WINDOW   = 600   # 10 minutes in seconds
+
+
 @router.post("/password-login")
 def password_login(body: PasswordLoginBody, response: Response):
     email = body.email.strip().lower()
     db = get_db()
     try:
+        # Rate limit: block if ≥10 failed attempts for this email in last 10 minutes
+        cutoff = int(time.time()) - _RATE_LIMIT_WINDOW
+        recent_failures = db.execute(
+            "SELECT COUNT(*) FROM login_attempts WHERE email = ? AND attempt_time > ?",
+            (email, cutoff),
+        ).fetchone()[0]
+        if recent_failures >= _RATE_LIMIT_MAX:
+            raise HTTPException(429, "Too many attempts. Please wait 10 minutes.")
+
         user   = db.execute("SELECT id, name FROM users WHERE email = ?", (email,)).fetchone()
         pw_row = None
         if user:
@@ -541,6 +554,12 @@ def password_login(body: PasswordLoginBody, response: Response):
             _set_cookie(json_response, _issue_jwt(user["id"], user["name"]))
             return json_response
 
+        # Record failed attempt
+        db.execute(
+            "INSERT INTO login_attempts (id, email, attempt_time) VALUES (?, ?, ?)",
+            (str(uuid.uuid4()), email, int(time.time())),
+        )
+        db.commit()
         raise HTTPException(401, "Email or password is incorrect.")
     finally:
         db.close()

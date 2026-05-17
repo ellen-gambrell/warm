@@ -46,7 +46,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: https://media.tenor.com https://c.tenor.com; "
-        "connect-src 'self' https://generativelanguage.googleapis.com; "
+        "connect-src 'self' https://generativelanguage.googleapis.com https://tenor.googleapis.com; "
         "frame-ancestors 'none';"
     )
 

@@ -21,7 +21,6 @@ import SupporterLogin, { SupporterAcceptInvite } from './components/SupporterLog
 import SupporterDashboard from './components/SupporterDashboard'
 import MenuView from './components/MenuView'
 import NavBar from './components/NavBar'
-import AdminPortal from './components/AdminPortal'
 import AdminPanel from './components/AdminPanel'
 import BillsView from './components/BillsView'
 import Privacy from './components/Privacy'
@@ -152,7 +151,6 @@ function AppShell() {
   else if (path === '/settings')   view = <Settings />
   else if (path === '/check-run')  view = <CheckRunView />
   else if (path === '/reminders')  view = <RemindersView />
-  else if (path === '/admin')      view = <AdminPortal />
   else view = <Home />
 
   return (

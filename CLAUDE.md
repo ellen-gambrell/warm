@@ -2,10 +2,7 @@
 
 ## Working Principles
 
-1. Don't assume. Don't hide confusion. Surface tradeoffs.
-2. Minimum code that solves the problem. Nothing speculative.
-3. Touch only what you must. Clean up only your own mess.
-4. Define success criteria. Loop until verified.
+See [`program/principles.md`](https://github.com/ellen-gambrell/program/blob/main/principles.md) (single source of truth for portfolio working principles).
 
 > Accessibility-first AI assistant for people with spinal cord injuries.
 > Built first for Margaret (ischemic spinal stroke, stylus use). Designed for the SCI spectrum.

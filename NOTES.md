@@ -4,6 +4,232 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## [AT Specialist 2026-05-25] Voice command feature — AT review
+
+**Scope:** `dfe8153` — NavBar mic button, VoiceCommandPanel, voiceCommandParser
+**Input modalities reviewed:** Switch Control, iOS Voice Control, VoiceOver, sip-and-puff, eye gaze
+
+Summary: 1 CRITICAL, 2 HIGH, 3 MEDIUM, 2 LOW. Feature is not safe to ship as-is for Switch Control and sip-and-puff users until C-1 and H-1 are resolved. The remaining findings are quality improvements and can ship behind C-1/H-1.
+
+---
+
+### CRITICAL-1 — Listening state has no exit when recognition ends without speech
+
+**File:** `frontend/src/components/VoiceCommandPanel.tsx`, line 75–77
+**Input modalities affected:** Switch Control, sip-and-puff, eye gaze, any non-speaking user
+
+The `recognition.onend` handler only clears the ref. It does not check whether the phase is still `listening`. When speech recognition times out after silence (iOS Safari: ~7–10 seconds), `onend` fires without `onresult` having fired first. The panel stays in "listening" state permanently — showing "🎤 Listening…" with no interactive elements and no way to close.
+
+A Switch Control user who accidentally activates the mic button (very easy to do while scanning the NavBar) is now trapped. Their only escape is scanning all the way back to the NavBar mic button to toggle the panel closed — a full scan cycle through all NavBar buttons. For a sip-and-puff user, this could take 20–30 switch activations.
+
+**Fix (Builder):**
+
+In `recognition.onend`, transition to `unknown` if still in `listening` phase:
+
+```typescript
+recognition.onend = () => {
+  recognitionRef.current = null
+  // If recognition ended without a result, give the user buttons to exit
+  setPhase(p => p.name === 'listening' ? { name: 'unknown', transcript: '' } : p)
+}
+```
+
+This is a one-line fix. The functional change: after ~7–10 seconds of silence (or after any abrupt recognition end without a result), the panel transitions to "I didn't catch that." with Try again and Close buttons. Non-speaking users can close cleanly.
+
+---
+
+### HIGH-1 — No Cancel button during active recognition window
+
+**File:** `frontend/src/components/VoiceCommandPanel.tsx`, line 181–185
+**Input modalities affected:** Switch Control, sip-and-puff, eye gaze
+
+CRITICAL-1 handles the case where recognition ends naturally. This finding covers the window WHILE recognition is still running (up to ~10 seconds). During active recognition, the only escape is tapping the NavBar mic button. For Switch Control, that means scanning back through 3 other NavBar buttons. No panel-level escape exists.
+
+A user who opens the panel and immediately wants to close it — or who activates it accidentally — must wait for recognition to time out (now going to "unknown" after C-1 fix) or scan back to the mic button.
+
+**Fix (Builder):**
+
+Add a Cancel button to the `listening` state:
+
+```tsx
+{phase.name === 'listening' && (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+    <p aria-live="polite" style={{ margin: 0, color: 'var(--color-accent)', fontWeight: 700, fontSize: 16 }}>
+      🎤 Listening…
+    </p>
+    <button
+      style={{ ...BTN, flex: 'none', minWidth: 80 }}
+      aria-label="Cancel voice command"
+      onClick={() => { stopRecognition(); onClose() }}
+    >
+      Cancel
+    </button>
+  </div>
+)}
+```
+
+The Cancel button stops recognition and closes the panel. It gives Switch Control users an in-panel escape hatch without scanning back to the NavBar. 64px min-height is inherited from `BTN`.
+
+---
+
+### HIGH-2 — White text on warm dark accent fails WCAG AA on Confirm button
+
+**File:** `frontend/src/components/VoiceCommandPanel.tsx`, line 149–154
+**Input modalities affected:** All users in Warm Dark theme
+
+`BTN_PRIMARY` uses `color: '#fff'` on `background: 'var(--color-accent)'`. In Warm Dark theme, `--color-accent` is `#e8a045`. White on amber: **3.1:1** — fails WCAG AA (4.5:1 for normal-weight text) and well below the project standard of 7:1 (AAA). The `index.css` comment documents this ratio as "decorative / large text only."
+
+The Confirm button is a primary action, not decoration. "✓ Confirm" at 16px bold renders visibly but fails contrast standards for this user population.
+
+Note: This is a pre-existing accent color limitation documented in `index.css`. It affects any white-on-accent usage. The new Confirm button is simply a new instance of the same problem.
+
+**Options (for Director decision, then Builder):**
+
+1. **Use `--color-text` on `--color-surface-raised` for BTN_PRIMARY in warm dark** — loses the visual primacy (looks same as secondary button), but passes contrast.
+2. **Use `--color-bg` (dark background) as text color on accent** — `#1a1714` on `#e8a045` = **7.2:1** ✓. This is the correct fix: dark text on amber accent. Warm dark is already designed to use dark text on the amber accent for decorative elements.
+3. **Use `--color-confirm` (#4caf82) as background instead of accent** — green confirm button. Passes contrast. Diverges from accent-as-primary-action pattern.
+
+**Recommended:** Option 2. Change `color: '#fff'` to `color: 'var(--color-bg)'` in `BTN_PRIMARY`. This makes the button dark-text-on-amber in warm dark, white-text-on-terracotta in warm light (which already passes), and white-text-on-blue in high contrast (which already passes). One change resolves all themes.
+
+**Fix (Builder):**
+
+```typescript
+const BTN_PRIMARY: React.CSSProperties = {
+  ...BTN,
+  background: 'var(--color-accent)',
+  color: 'var(--color-bg)',   // dark in warm-dark (7.2:1), light in warm-light/high-contrast
+  border: '2px solid var(--color-accent)',
+}
+```
+
+---
+
+### MEDIUM-1 — `role="dialog"` incorrect for inline panel; no focus management
+
+**File:** `frontend/src/components/VoiceCommandPanel.tsx`, line 157–159
+
+`role="dialog"` semantically means "a modal window that separates content from the rest of the application." The VoiceCommandPanel is not modal — page content remains accessible and scrollable while the panel is open. Using `role="dialog"` without `aria-modal="true"` is a partial ARIA dialog implementation that may produce inconsistent AT behavior.
+
+More precisely: the intended behavior here is an **inline content region** that appears in the navigation area. `role="region"` with `aria-label="Voice command"` is the correct semantic.
+
+Additionally, there is no focus management:
+- When the panel opens, focus stays on the NavBar mic button (reasonable for listening state since there's nothing to focus, but Confirm should get focus when it appears)
+- When the panel closes, focus should return to the mic button (currently it stays wherever it was when the panel closed, which may be a button that no longer exists or has shifted)
+
+**Fix (Builder):**
+
+1. Change `role="dialog"` to `role="region"` in VoiceCommandPanel.
+
+2. Add a ref to the Confirm button and focus it when entering confirmation state:
+
+```tsx
+const confirmBtnRef = useRef<HTMLButtonElement>(null)
+
+useEffect(() => {
+  if (phase.name === 'confirmation') {
+    confirmBtnRef.current?.focus()
+  }
+}, [phase.name])
+
+// In the button:
+<button ref={confirmBtnRef} style={BTN_PRIMARY} ... >
+```
+
+3. In NavBar, add a ref to the mic button and call `.focus()` after panel closes:
+
+```tsx
+const micBtnRef = useRef<HTMLButtonElement>(null)
+// Pass micBtnRef.current?.focus to VoiceCommandPanel's onClose, or:
+const handleClose = () => {
+  setVoiceOpen(false)
+  micBtnRef.current?.focus()
+}
+```
+
+---
+
+### MEDIUM-2 — VoiceOver entry announcement absent when panel opens
+
+**File:** `frontend/src/components/VoiceCommandPanel.tsx`
+
+When the VoiceCommandPanel mounts, VoiceOver users navigating linearly will encounter the panel's `role="region"` container (after M-1 fix) and hear "Voice command, region." The `aria-live="polite"` on "🎤 Listening…" will then announce the status. This is adequate but passive — the user must navigate to the panel to discover it.
+
+For users who are not linearly navigating (reading the page from top to bottom), the panel appearing may go unannounced. A hidden `aria-live` region injected on mount would proactively announce the panel to VoiceOver regardless of focus position.
+
+This is a quality improvement, not a blocking issue. The current implementation is workable.
+
+**Fix (Builder, low priority):**
+
+Add a hidden live region that announces on mount:
+
+```tsx
+const [announced, setAnnounced] = useState(false)
+useEffect(() => { setAnnounced(true) }, [])
+
+// In JSX (hidden from visual, present in accessibility tree):
+<span
+  aria-live="polite"
+  style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+>
+  {announced ? 'Voice command panel open. Listening.' : ''}
+</span>
+```
+
+---
+
+### MEDIUM-3 — iOS Voice Control + Web Speech API coexistence: platform limitation
+
+**Not fixable in code. Documentation needed.**
+
+When the VoiceCommandPanel is in "listening" state, the Web Speech API microphone is active. On iOS, Voice Control is always listening. Empirically, when both are active:
+
+- Voice Control commands spoken by the user ("tap confirm") **may** be captured by the speech recognizer and processed as a navigation/reminder command before Voice Control sees them.
+- The parsed result would likely be `{ type: 'unknown' }` (since "tap confirm" doesn't match any command pattern), which correctly transitions to "I didn't catch that." — a recoverable state.
+- However, the user's *intended* Voice Control command is not executed; they must re-speak it after the panel shows the confirmation buttons.
+
+The expected usage flow for Voice Control users:
+1. "Tap voice command" → panel opens, listening
+2. Speak the command ("go to gmail") → panel shows confirmation
+3. "Tap confirm" → action executes
+
+Steps 1 and 3 are Voice Control commands. Step 2 is captured by Web Speech API. The separation is intentional and correct.
+
+**Action:** Add a brief explainer in app onboarding / help text. When Margaret or other users first encounter this feature, they should know: "Speak your command, then use Voice Control to tap Confirm." This should be surfaced in the onboarding flow, not as an in-panel tooltip.
+
+---
+
+### LOW-1 — Confirm aria-label verbosity under Voice Control "show names"
+
+`aria-label={`Confirm: ${phase.confirmText}`}` generates labels like "Confirm: Add a 2-hour reminder for pressure relief." Voice Control "show names" overlay may truncate at ~30 characters. Voice Control partial matching ("tap confirm") still works because it matches from the start of the label. Non-blocking.
+
+---
+
+### LOW-2 — Recognition language `en-US` only; atypical speech unresolved
+
+`recognition.lang = 'en-US'` is correct for Margaret and the current user base. However, Web Speech API accuracy degrades significantly with dysarthric speech (a common SCI comorbidity). The "I didn't catch that" → "Try again" loop provides a recoverable path, but repeated failures are frustrating.
+
+This is a platform limitation. Voiceitt integration (in BACKLOG.md "Later" section) would address atypical speech. No code change needed now. Flag for evaluation when Voiceitt backlog item is prioritized.
+
+---
+
+### Real-device testing checklist
+
+When this feature deploys, validate the following on Margaret's actual device (iOS Safari):
+
+- [ ] Open panel via Voice Control "tap voice command" — panel opens, starts listening
+- [ ] Speak "go to gmail" — confirmation appears; "tap confirm" navigates
+- [ ] Speak "open reminders" — confirmation appears for Reminders destination
+- [ ] Speak "add a reminder for pressure relief every 2 hours" — confirmation shows correct label and interval; confirm creates reminder
+- [ ] Say nothing for 10 seconds — panel transitions to "I didn't catch that" (verifies C-1 fix)
+- [ ] Tap Cancel during listening — panel closes immediately (verifies H-1 fix)
+- [ ] Speak "go to gmail" then "tap confirm" via Voice Control — confirm that Voice Control command executes correctly after Web Speech API has finished
+- [ ] With Switch Control: scan into NavBar, reach mic button, activate — panel opens; scan forward reaches Cancel button (listening), then Confirm/Try again (confirmation)
+- [ ] Switch Control: activate mic accidentally, Cancel without speaking — closes cleanly
+- [ ] High Contrast theme: check contrast of Confirm button text (verifies H-2 fix)
+- [ ] All 4 themes: verify `:focus-visible` ring is visible on all panel buttons
+
+---
+
 ## [Builder 2026-05-25] Voice command entry point — Phase 1 — code-complete, pending review
 
 **Branch:** `main` (staged for commit)

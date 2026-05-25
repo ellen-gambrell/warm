@@ -4,6 +4,51 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## [Builder 2026-05-25] Voice command entry point — Phase 1 — code-complete, pending review
+
+**Branch:** `main` (staged for commit)
+**Status:** Build clean — zero TypeScript errors
+
+### What was built
+
+**`frontend/src/utils/voiceCommandParser.ts`** (new)
+- Pure function `parseVoiceCommand(transcript, reminders)` — no side effects, no API calls
+- Returns typed `VoiceCommand` union: `navigate | reminder_add | reminder_snooze | reminder_dismiss | unknown`
+- 13 navigation destinations with full alias sets (natural speech variants)
+- Reminder add: regex match for "add/set/create a reminder for [label] every [interval]"; 5 interval values (30min–8hr); label normalization strips "the/my/a/an/reminder"
+- Reminder snooze/dismiss: fuzzy match against reminders list (exact → includes → reverse-includes)
+- `formatInterval(minutes)` helper for human-readable confirmation text ("2-hour", "1-hour", etc.)
+- Reminder actions checked before navigation so "reminder" keyword doesn't ambiguously navigate
+
+**`frontend/src/components/VoiceCommandPanel.tsx`** (new)
+- Phases: `unavailable | listening | confirmation | unknown | executing`
+- Starts listening on mount (Web Speech API, `continuous: false`, `interimResults: false`)
+- `confirmation` phase: "I think you want to: [action]. Is that right?" + Confirm / Try again buttons
+- `unknown` phase: "I didn't catch that." + Try again / Close buttons
+- `unavailable` phase (no mic API): "Voice commands require a microphone. Check your browser permissions." + Close
+- On confirm: executes the action (navigate / POST /api/reminders / PATCH /api/reminders/{id} / dismissAlert)
+- `role="dialog"` with `aria-label="Voice command"`; `aria-live="polite"` on all status text
+- All buttons ≥ 64px; no timed UI; no auto-dismiss on any state (hard constraint respected)
+
+**`frontend/src/components/NavBar.tsx`** (modified)
+- 4th button: 🎤 mic, flex: 1, minHeight: 64px, `aria-label="Voice command"`, `aria-pressed` reflects open state
+- Button turns accent color when panel is open (visual indicator of active state)
+- Panel expands inline below the nav row within the same sticky container — no separate overlay, no modal, no new route
+- `useReminders()` hook provides reminders list, activeAlert, dismissAlert, refreshReminders to the panel
+- `NAVBAR_HEIGHT = 80` still represents the nav row height only (unchanged for existing callers)
+
+### No new npm packages. No backend changes. No .env changes.
+
+### AT Specialist review flags
+
+[AT Specialist: review]
+- NavBar mic button: `aria-label="Voice command"`, `aria-pressed` state wired to open/close. Min-height 64px, flex: 1 (same as other NavBar buttons). In scan order as 4th button (rightmost).
+- VoiceCommandPanel: `role="dialog"` with `aria-label="Voice command"`. All interactive text has `aria-live="polite"`. Confirm / Try again / Close buttons all ≥ 64px. No timed UI on any state.
+- **Bootstrapping concern (flag for AT Specialist):** Voice-primary users who cannot tap cannot tap the mic button to open the panel. The intended path is iOS Voice Control "tap voice command" which works with the aria-label. Switch Control scanning will reach the mic button as the 4th element in the NavBar scan group. Flag for real-device testing with Voice Control and Switch Control.
+- **Atypical speech (flag for AT Specialist):** Web Speech API accuracy with dysarthric speech is unknown. If recognition is consistently failing for a user, the "I didn't catch that" → "Try again" loop provides a clear re-attempt path, but the underlying ASR accuracy is outside our control. Flag for real-device test with Margaret and other users.
+
+---
+
 ## [Builder 2026-05-13] /privacy page — complete
 
 Public `/privacy` route added for Google OAuth consent screen requirement.
@@ -1047,3 +1092,494 @@ server step needed.
 **Open findings (not code-addressable without infra/policy decision):**
 - MEDIUM-3 (Gemini API + financial PII / DPA) — policy decision needed
 - INFO-1 (role propagation delay) — accepted by design
+
+---
+
+## Infra Needed — 2026-05-14
+
+**Deploy batch ready.** The following commits are on `main` and need to be deployed to Hetzner (5.78.110.203).
+
+### Commits since last deploy (PR #8 / f340d4a)
+
+```
+d6040c4  fix: NavBar buttons stretch equally across full header width
+420d137  feat: emoji picker for profile icon, shown on Home greeting
+fbae5d3  feat: add Profile view with name, pronouns, and input profile
+e0a53e2  feat: add Home button to NavBar between Back and Forward
+f340d4a  fix: use GOOGLE_CONNECTIONS_REDIRECT_URI for Gmail/Drive OAuth callback  ← last deployed
+```
+
+### What this deploy does
+
+- NavBar: adds 🏠 Home button between Back and Forward
+- Profile view at /profile: name, pronouns, input profile (moved from Settings), emoji picker
+- Home screen: profile emoji shown before greeting ("🙂 Hi, Margaret.")
+- Backend: three new DB columns (first_name, last_name, pronouns, profile_emoji) via IF NOT EXISTS migrations — safe to run on existing warm.db
+- No new pip packages required
+
+### Deploy steps for Program infra skill
+
+1. `git pull` on Hetzner to bring main up to date
+2. `cd /home/deploy/warmcare/frontend && npm run build` — rebuild frontend
+3. `rsync` dist to serve path (per standard deploy runbook)
+4. `systemctl restart warmcare` — picks up DB migrations on next request
+5. Verify: `curl https://warm.care/api/health`
+
+No pip install needed. No .env changes needed.
+
+---
+
+## Infra Needed — 2026-05-14 (updated, supersedes previous entry)
+
+**All 5 commits pushed to origin/main. Ready to deploy.**
+
+### Commits to deploy (since PR #8 / f340d4a)
+
+```
+04c6e9c  fix: font size setting now scales UI via zoom
+d6040c4  fix: NavBar buttons stretch equally across full header width
+420d137  feat: emoji picker for profile icon, shown on Home greeting
+fbae5d3  feat: add Profile view with name, pronouns, and input profile
+e0a53e2  feat: add Home button to NavBar between Back and Forward
+```
+
+### Deploy steps for Program infra skill
+
+1. SSH to Hetzner (5.78.110.203 as deploy user)
+2. `cd /home/deploy/warmcare && git pull origin main`
+3. `cd frontend && npm run build`
+4. Copy/rsync dist to serve path (per standard runbook)
+5. `systemctl restart warmcare`
+6. Verify: `curl https://warm.care/api/health`
+
+### Notes
+- No new pip packages
+- No .env changes
+- DB migrations run automatically on first request (IF NOT EXISTS — safe on live warm.db)
+
+---
+
+## UAT Test Plan — 2026-05-14
+
+**Scope:** First UAT pass. No feature has been formally tested. All cases are manual browser/device tests unless flagged.
+
+**Flags used:**
+- `[AT]` — requires AT simulation (iOS Voice Control or Switch Control)
+- `[DEVICE]` — requires a real iOS device (not emulator) to test faithfully
+- `[DEPLOY]` — blocked pending a live deploy or environment condition
+- `[NEEDS SETUP]` — requires a second user account, real email, real connection, or other external setup
+
+**Test environment:** https://warm.care (production) or local dev at http://localhost:5173 (backend on :8002)
+
+---
+
+### Auth — Google OAuth login
+
+- [ ] Load https://warm.care — Login screen appears with Google and password options
+- [ ] Tap "Sign in with Google" — redirects to Google OAuth consent screen
+- [ ] Complete Google sign-in with an approved account — lands on Home screen (or Onboarding if new user)
+- [ ] Complete Google sign-in with an unknown account — redirected back to login with `?error=pending_approval`; human-readable message appears; URL cleaned after display
+- [ ] Reload the page while authenticated — user stays logged in (session persists via HttpOnly cookie)
+- [ ] `[AT]` All login buttons reachable and labeled via Voice Control "show names"
+- [ ] `[DEVICE]` Google OAuth redirect completes correctly on iOS Safari
+
+### Auth — Password login
+
+- [ ] Tap "Sign in with password instead" — email + password fields appear; Google button disappears
+- [ ] Enter a valid email + password — logs in and lands on Home
+- [ ] Enter a wrong password — error message appears ("Email or password is incorrect.")
+- [ ] Leave email blank — Sign in button is disabled
+- [ ] Trigger rate limit (10+ failed attempts) — 429 error shown as "Too many attempts. Please wait 10 minutes."
+- [ ] Press Enter in password field — triggers login
+- [ ] Tap "Sign in with Google instead" — returns to Google sign-in view
+- [ ] `[AT]` Email and password fields have correct aria-labels; Switch Control can reach and fill them
+
+### Auth — Logout
+
+- [ ] Tap "Sign out" on Home — returns to Login screen; subsequent page reload shows Login (session cleared)
+- [ ] Tap "Sign out" on Settings — same result
+
+### Auth — Password set link
+
+- [ ] In Settings → Account, tap "Send password link" — button shows "Sending…" then success text
+- [ ] Receive email at the logged-in address with a set-password link `[NEEDS SETUP]`
+- [ ] Open the set-password link `/settings/set-password?token=...` — SetPassword UI shown without NavBar
+- [ ] Set a new password via that link — can log in with it via password flow `[NEEDS SETUP]`
+
+### Auth — Session persistence
+
+- [ ] Close and reopen tab — user remains logged in
+- [ ] `[DEVICE]` Close Safari and reopen — user remains logged in on iOS
+
+---
+
+### Home screen — Tile grid
+
+- [ ] Authenticated user lands on Home — greeting shows profile emoji + first name
+- [ ] Today's date shown in correct format (e.g. "Wednesday, May 14")
+- [ ] All 14 standard tiles present: Today's Menu, Ask anything, Reminders, Bills, Gmail, Google Drive, Venmo, Check Run, Find a GIF, Wordle, Candy Crush, Solitaire, Settings, Profile
+- [ ] Tap any internal tile — navigates correctly (no full page reload)
+- [ ] Tap Wordle, Candy Crush, Solitaire — opens external link in new tab
+- [ ] All tiles ≥ 120px tall, ≥ 44px accessible target `[DEVICE]`
+- [ ] Admin tile visible only when signed in as ellengambrell@gmail.com
+- [ ] Admin tile badge shows pending-request count when > 0 `[NEEDS SETUP]`
+- [ ] Admin tile badge absent when no pending requests
+- [ ] Custom AI Cards tiles appear after standard tiles (if any cards created)
+- [ ] Tap a Custom Card tile — full-screen card detail overlay opens
+- [ ] Card detail shows tile name, last-updated timestamp, and result text
+- [ ] Card detail "First update pending" shown when card has never run
+- [ ] Card detail back button (←) closes the overlay
+- [ ] `[AT]` Each tile has an aria-label; Bills tile aria-label mentions count when badge present
+- [ ] `[AT]` All tiles reachable via Switch Control scanning
+
+### Home screen — PWA install prompt
+
+- [ ] `[DEVICE]` First visit on iOS Safari (not installed as PWA) — "Add to your home screen" banner appears
+- [ ] `[DEVICE]` Tap "Dismiss" — banner disappears and does not return on reload (localStorage key set)
+- [ ] `[DEVICE]` Open in installed PWA mode — install banner not shown
+
+### Home screen — Bills badge
+
+- [ ] With Gmail connected and at least one bill with a `sender_email`, visit Home — Bills tile shows badge count if new bills detected `[NEEDS SETUP]`
+- [ ] Tap Bills tile — badge clears on the Home screen immediately
+- [ ] With Gmail not connected — Bills tile shows no badge regardless
+
+---
+
+### NavBar
+
+- [ ] NavBar visible on all authenticated screens (Home, Chat, Gmail, Drive, etc.)
+- [ ] Back, Home, and Forward buttons always rendered — never hidden
+- [ ] All three buttons ≥ 64px tall
+- [ ] Back button disabled (opacity 0.38, cursor default) on first navigation
+- [ ] Forward button disabled after navigating forward to the latest page in history
+- [ ] Tap Back — navigates to previous page
+- [ ] Tap Forward after going back — navigates forward
+- [ ] Tap Home — navigates to Home from any screen
+- [ ] `[AT]` All three buttons have distinct aria-labels ("Go back", "Go home", "Go forward")
+- [ ] `[AT]` Disabled state communicated via aria-disabled on Back and Forward
+- [ ] `[AT]` NavBar reachable via Switch Control as first region on screen
+
+---
+
+### AI Chat
+
+- [ ] Navigate to Ask anything — empty state shown with greeting and 3 suggestion chips
+- [ ] Tap a suggestion chip — text populates the input field
+- [ ] Type a message and tap Send (▶) — message appears right-aligned; typing indicator shown; AI reply appears
+- [ ] AI reply renders markdown (bold, bullet lists, links)
+- [ ] Send button disabled when input is empty
+- [ ] Send button disabled while AI is responding
+- [ ] Press Enter (desktop) — sends message
+- [ ] Shift+Enter (desktop) — inserts newline, does not send
+- [ ] "New chat" button appears once messages exist; tap it — conversation cleared
+- [ ] Auto-read toggle (🔇/🔊) visible when TTS available; toggle changes aria-pressed and icon
+- [ ] Enable auto-read then send a message — AI reply is read aloud automatically `[DEVICE]`
+- [ ] "Read" button appears under each AI reply; tap — reads that message aloud `[DEVICE]`
+- [ ] Tap "Stop" while TTS is playing — playback stops
+- [ ] Financial context disclosure ("💰 Used your financial data") shown when Monarch context used `[NEEDS SETUP]`
+- [ ] `[AT]` Message log has role="log" and aria-live="polite"
+- [ ] `[AT]` Mic button has correct aria-label and aria-pressed state
+
+### AI Chat — Voice input
+
+- [ ] `[DEVICE]` Mic button visible on devices with Web Speech API (Chrome on Android; Safari on iOS with mic permission granted)
+- [ ] `[DEVICE]` Tap mic — browser requests mic permission (first time); button turns red; input field shows "Listening…"
+- [ ] `[DEVICE]` Speak — transcript appears in input field in real time
+- [ ] `[DEVICE]` Stop speaking — recognition ends; message auto-sent
+- [ ] `[DEVICE]` Tap mic while listening — stops recognition; message not sent if transcript empty
+
+### AI Chat — Email compose via ConfirmationPanel
+
+- [ ] Ask AI to write an email — AI proposes action; ConfirmationPanel appears above input
+- [ ] ConfirmationPanel shows: to address, subject, body preview
+- [ ] Tap "Send" in ConfirmationPanel — `mailto:` link opens device mail app `[DEVICE]`
+- [ ] Tap "Cancel" in ConfirmationPanel — panel dismissed; AI replies "Got it — I won't send anything."
+- [ ] `[AT]` ConfirmationPanel is keyboard/Switch-Control accessible; confirm and cancel buttons ≥ 64px
+
+---
+
+### Gmail
+
+- [ ] Navigate to Gmail — inbox list loads (Gmail must be connected) `[NEEDS SETUP]`
+- [ ] Without Gmail connected — "not connected" error state shown with a link to Settings
+- [ ] Inbox list shows subject, sender, date snippet per message
+- [ ] Unread messages visually distinguished
+- [ ] Messages with attachments show attachment indicator
+- [ ] Tap an email — full message view opens (from, to, date, subject, body)
+- [ ] AI synopsis shown above body
+- [ ] Reply button present in message view — tapping opens compose UI
+- [ ] Reply-all button present (when CC/multiple recipients) `[NEEDS SETUP]`
+- [ ] ConfirmationPanel shown before sending any reply — user must confirm
+- [ ] Voice input available in reply compose `[DEVICE]`
+- [ ] Back button (NavBar or in-view) returns to inbox list
+- [ ] Deep-link from Bills (`/gmail?message=<id>`) opens that specific message directly `[NEEDS SETUP]`
+- [ ] `[AT]` Email list items have full aria-labels (sender + subject)
+
+---
+
+### Google Drive
+
+- [ ] Navigate to Google Drive — file list loads (Drive must be connected) `[NEEDS SETUP]`
+- [ ] Without Drive connected — "not connected" error state shown with link to Settings
+- [ ] On load failure (connected but API error) — load-failure error state shown (distinct from not-connected)
+- [ ] File list shows name, type icon, modified date
+- [ ] Tap a file — document viewer opens; AI synopsis generated
+- [ ] `[AT]` File list items have aria-labels
+
+---
+
+### GIF Finder
+
+- [ ] Navigate to Find a GIF — trending GIFs load on mount
+- [ ] Type a search query and tap search — results updated
+- [ ] Results show GIF previews in a grid
+- [ ] No results for a valid query — "No GIFs found" state shown
+- [ ] API error during search — search error state shown (not a blank screen)
+- [ ] Tap a GIF — copy/share action available
+- [ ] `[AT]` Search input has aria-label; GIF buttons have aria-labels
+- [ ] Giphy not configured (GIPHY_API_KEY missing) — `configured: false` state handled gracefully `[DEPLOY]`
+
+---
+
+### Bills
+
+- [ ] Navigate to Bills — "My Bills" section visible; no bills initially shows "No bills added yet."
+- [ ] Tap "+ Add a bill" — BillForm appears inline
+- [ ] Category selector shows 6 options (Electric, Gas, Water, Phone, Internet, Other) as styled radio labels ≥ 44px
+- [ ] Company name required — Save button disabled when blank
+- [ ] Fill form, tap Save — bill appears in list; form closes
+- [ ] Bill card shows: icon, company name, category, phone (as tel: link if set), customer number (with Copy button)
+- [ ] Tap phone number tel: link on mobile — opens dialer `[DEVICE]`
+- [ ] Tap "Copy" on customer number — button changes to "Copied ✓"; clipboard has the number `[DEVICE]`
+- [ ] Tap "Edit" on a bill — BillForm replaces the card inline; existing values pre-filled
+- [ ] Edit and save — bill updated in list
+- [ ] Tap Cancel in edit form — edit abandoned; original card restored
+- [ ] Tap × (delete) on a bill — browser confirm dialog; on confirm, bill removed from list
+- [ ] Tap × then Cancel in confirm dialog — bill not deleted
+- [ ] "Recent Bills" section only shown when Gmail is connected AND at least one bill has a sender_email set
+- [ ] Recent Bills shows up to 15 recent emails from bill senders, sorted newest-first `[NEEDS SETUP]`
+- [ ] Tap a Recent Bill item — navigates to Gmail message view for that email `[NEEDS SETUP]`
+- [ ] New bill badge shown on bill card when Gmail has new emails from that sender `[NEEDS SETUP]`
+- [ ] "Connect Gmail in Settings" prompt shown when Gmail not connected but bill has sender_email set
+- [ ] `[AT]` Category radio group uses fieldset/legend; all labels ≥ 44px
+- [ ] `[AT]` Delete button aria-label includes company name
+
+---
+
+### Profile
+
+- [ ] Navigate to Profile — current values pre-filled (emoji, first name, last name, email, pronouns, input profile)
+- [ ] Email field is read-only (managed by Google)
+- [ ] Tap profile emoji button — emoji picker opens
+- [ ] Emoji picker: search "heart" — filters to heart emojis
+- [ ] Emoji picker: search with no matches — "No emoji found" message shown
+- [ ] Select an emoji — picker closes; emoji updates on button
+- [ ] Press Escape in picker — picker closes
+- [ ] Change first name, last name, pronouns, input profile — tap Save
+- [ ] Save succeeds — button shows "Saved ✓" briefly; returns to "Save"
+- [ ] Save fails (network error) — "Could not save profile. Please try again." alert shown
+- [ ] Saved profile reflected in Home greeting (emoji + name) after save `[DEVICE]` (may require reload)
+- [ ] `[AT]` Pronouns radiogroup has correct aria-labelledby; each option ≥ 64px
+- [ ] `[AT]` Input profile radiogroup uses role="radio" and aria-checked
+- [ ] `[AT]` Emoji picker dialog has role="dialog" and aria-label
+
+---
+
+### Settings — Connected services
+
+- [ ] Navigate to Settings — all 4 service cards shown (Gmail, Drive, Venmo, Monarch Money)
+- [ ] Disconnected service shows Connect button; connected service shows "Connected ✓" badge + Disconnect button
+- [ ] Tap "Connect Gmail" — redirects to Google OAuth `[NEEDS SETUP]`
+- [ ] Complete Gmail OAuth — returns to /settings with success flash; card shows "Connected ✓"
+- [ ] Tap "Disconnect Gmail" — Gmail disconnected; card resets to disconnected state
+- [ ] Connect Drive (same flow as Gmail) `[NEEDS SETUP]`
+- [ ] Disconnect Drive — card resets
+- [ ] Enter Venmo @username and tap "Connect Venmo" (or press Enter) — success notice shown; card shows connected
+- [ ] Disconnect Venmo — username cleared; card resets
+- [ ] Monarch Money: enter email + password, tap Connect — on success, card shows connected with email `[NEEDS SETUP]`
+- [ ] Monarch Money: wrong password — error shown inline on the card (not off-screen)
+- [ ] Monarch Money: account requires 2FA — OTP field reveals; enter 6-digit code and connect `[NEEDS SETUP]`
+- [ ] Monarch Money: show/hide password toggle works
+- [ ] Disconnect Monarch Money — card resets; credentials cleared
+- [ ] OAuth error codes (`google_denied`, `google_state_invalid`, `google_token_failed`) show human-readable messages
+
+### Settings — My Cards
+
+- [ ] "My Cards" section shows existing cards or "Add a card" button (when < 3 cards)
+- [ ] Tap "+ Add a card" — card creation form appears
+- [ ] Form: enter prompt, select schedule (Daily/Weekly/Monthly/Annually), optionally check "Show to supporters"
+- [ ] Tap "Create card" with blank prompt — button disabled
+- [ ] Create card — card appears in list with tile name, schedule, visibility, prompt preview
+- [ ] Tap Refresh (↻) on a card — card re-runs immediately; last-updated date changes
+- [ ] Tap Edit on a card — form pre-filled with existing values
+- [ ] Save edited card — list updates
+- [ ] Tap Delete on a card — confirm dialog; on confirm, card removed
+- [ ] At 3 cards, "+ Add a card" button replaced by "You've reached the 3-card limit." message
+- [ ] `[NEEDS SETUP]` Card created with `supporter_view` visibility — appears in Supporter Dashboard Cards tab
+
+### Settings — Appearance
+
+- [ ] 4 theme options shown in a 2-column grid: Warm Dark, Warm Light, Adaptive, High Contrast
+- [ ] Tap each theme — UI colors update immediately; active theme shows "✓ Active"
+- [ ] Warm Dark selected — dark background, warm accent colors
+- [ ] High Contrast selected — high contrast colors; verify text contrast ≥ 7:1 `[AT]`
+- [ ] Theme persists across navigation (context-level; persisted to localStorage)
+- [ ] 3 text size options: Standard, Large, X-Large
+- [ ] Tap Large — text visibly larger across all UI elements
+- [ ] Tap X-Large — text even larger; no layout breakage at max text size `[DEVICE]`
+- [ ] Text size persists across navigation
+- [ ] `[AT]` Theme and text-size radiogroups have role="radiogroup" and aria-label
+
+### Settings — Supporters
+
+- [ ] Supporters section shows "No supporters yet" when list is empty
+- [ ] Tap "+ Add a supporter" — invite form appears
+- [ ] Enter email, select role, tap "Send invite" — success message "Invite sent to {email} ✓"; form closes
+- [ ] Pending invite appears in "Pending" sub-list with dashed border
+- [ ] Tap "Cancel" on a pending invite — confirm dialog; on confirm, invite removed from list
+- [ ] Role = Respite selected — "Access ends on" date field appears and is required
+- [ ] Respite invite without end date — error shown
+- [ ] Active supporter listed with name, role_label, email
+- [ ] Tap "Remove" on a supporter — confirm dialog; on confirm, supporter removed from list
+- [ ] `[NEEDS SETUP]` Invite accepted by second user — they appear as active supporter
+
+### Settings — Account / Password
+
+- [ ] Password section shows user's email address
+- [ ] Tap "Send password link" — button shows "Sending…" then success message
+- [ ] Check email for password-reset link `[NEEDS SETUP]`
+
+---
+
+### Reminders
+
+- [ ] Navigate to Reminders — empty state shows guidance text ("A 2-hour pressure relief reminder is a good start")
+- [ ] Tap "+ Add reminder" — form appears with label field and interval dropdown
+- [ ] Interval options: Every 30 min, Every hour, Every 2 hours, Every 4 hours, Every 8 hours
+- [ ] Leave label blank — "Add reminder" button disabled
+- [ ] Fill label, select interval, tap "Add reminder" — reminder appears in list; form closes
+- [ ] Reminder card shows label, interval text, "Active" status; border highlighted in accent color
+- [ ] Tap "Pause" — reminder toggles to paused; border changes to default; status shows "Paused"
+- [ ] Tap "Resume" on a paused reminder — reminder re-activates
+- [ ] Tap × (delete) on a reminder — confirm dialog; on confirm, reminder removed
+- [ ] Cancel delete confirm — reminder not removed
+- [ ] `[DEVICE]` With an active 30-min reminder set, wait for interval — reminder alert banner appears at top of screen; TTS reads the reminder label aloud
+- [ ] `[DEVICE]` Alert banner has role="alert" aria-live="assertive" — VoiceOver reads it immediately
+- [ ] `[DEVICE]` Tap "Done" on alert banner — banner dismisses; TTS stops
+- [ ] `[AT]` Pause/Resume and delete buttons have aria-labels including reminder name
+- [ ] Reminder timers only fire while app is open (no background push) — note this in test results
+
+---
+
+### Custom AI Cards
+
+- [ ] Create a card via Settings (covered above)
+- [ ] Card tile appears on Home screen after creation
+- [ ] Tap card tile — full-screen overlay shows tile name, last-run timestamp, and AI-generated content
+- [ ] Card with no run yet shows "First update pending"
+- [ ] `[DEPLOY]` After next hourly cron run — card content updates; "Pending first update" replaced with result
+- [ ] Refresh a card manually via Settings → card result updates within a few seconds
+- [ ] Edit a card prompt — Home tile name updates to match new prompt's generated tile name
+- [ ] Delete a card — Home tile disappears
+- [ ] `[NEEDS SETUP]` Card with `supporter_view` visibility — verify it appears in Supporter Dashboard Cards tab but not private cards of other users
+
+---
+
+### Supporter Portal — Invite acceptance
+
+- [ ] `[NEEDS SETUP]` Send an invite to a second email via Settings
+- [ ] `[NEEDS SETUP]` Recipient opens invite email; clicks the link (`/supporter/accept?token=...`)
+- [ ] Invite acceptance page shows: role name, email, Google sign-in button
+- [ ] Invalid or expired token — error message shown ("Invalid invite." or similar)
+- [ ] Tap "Sign in with Google" on acceptance page — Google OAuth for supporter `[NEEDS SETUP]`
+- [ ] After Google sign-in with the invited email — redirected to Supporter Dashboard `[NEEDS SETUP]`
+
+### Supporter Portal — Dashboard
+
+- [ ] `[NEEDS SETUP]` Signed in as a supporter — Supporter Dashboard shown (not Margaret's Home)
+- [ ] Header shows supporter's name and role_label
+- [ ] Tabs shown based on role: Menu tab always shown; Cards tab always shown; Supporters tab only for key_contact
+- [ ] Sign out button in header — logs out supporter; returns to SupporterLogin
+- [ ] Menu tab — MenuEditor rendered for menu-edit roles (key_contact, family_secondary, homemaker) `[NEEDS SETUP]`
+- [ ] Cards tab — shows cards marked `supporter_view`; "No cards shared yet" if none
+- [ ] Cards tab: tap a card — card detail shown; back button returns to list
+- [ ] Supporters tab (key_contact only) — SupporterManagement component shown `[NEEDS SETUP]`
+- [ ] Non-menu-edit role lands on generic welcome screen with prompt to check Cards tab `[NEEDS SETUP]`
+- [ ] `[AT]` Tab buttons ≥ 56px; active tab indicated by bottom border + color change
+
+---
+
+### Onboarding — New user first run
+
+- [ ] `[NEEDS SETUP]` Approve a brand-new Google account — first login triggers Onboarding (not Home)
+- [ ] Step 1 (Welcome): warm.care logo, description text, "Get started →" and "Skip to home" buttons
+- [ ] Tap "Get started →" — advances to Step 2
+- [ ] Tap "Skip to home" at Step 1 — marks onboarding complete; lands on Home
+- [ ] Step 2 (Profile): 5 input profile options shown as radio buttons (Stylus, Voice, Switch, Sip-and-puff/switch, Gaze, Touch)
+- [ ] Each profile option ≥ 72px; includes emoji, name, and description
+- [ ] Select a profile — option highlights with accent border
+- [ ] Tap "Continue →" — advances to Step 3
+- [ ] Tap "Skip to home" at Step 2 — marks onboarding complete with stylus default; lands on Home
+- [ ] Step 3 (Ready): "You're all set, {firstName}!" heading; shows sign-in email and selected profile
+- [ ] Tap "Try the chat →" — marks onboarding complete; navigates to /chat
+- [ ] Tap "Go to home" — marks onboarding complete; navigates to Home
+- [ ] `[AT]` Profile radiogroup has role="radiogroup" and aria-label; each option uses role="radio" and aria-checked
+
+---
+
+### Admin Portal
+
+- [ ] `[NEEDS SETUP]` Sign in as ellengambrell@gmail.com — Admin tile appears on Home
+- [ ] Tap Admin tile — Admin Panel loads at /admin
+- [ ] Pending access requests listed with email, requested date
+- [ ] Tap "Approve" — user approved; request removed from queue; count badge updates `[NEEDS SETUP]`
+- [ ] Tap "Deny" — request denied; removed from queue `[NEEDS SETUP]`
+- [ ] User list tab shows all registered users with role and last-active info
+- [ ] Usage stats section shows message counts or visit counts
+- [ ] `[AT]` Admin panel buttons labeled; lists use semantic markup
+
+---
+
+### Accessibility — Cross-cutting checks
+
+- [ ] `[AT]` All interactive elements have visible focus rings (or custom equivalent) in all 4 themes
+- [ ] `[AT]` Color contrast ≥ 7:1 for body text in all 4 themes — spot-check with contrast analyzer
+- [ ] `[AT]` High Contrast theme: verify all text passes WCAG AAA (7:1)
+- [ ] `[AT]` Warm Dark theme: verify accent colors on dark background pass ≥ 7:1
+- [ ] `[AT]` No interactive element hidden from accessibility tree (check aria-hidden misuse)
+- [ ] `[AT]` `[DEVICE]` iOS Voice Control "show numbers" — all interactive controls receive a number
+- [ ] `[AT]` `[DEVICE]` iOS Voice Control "show names" — all buttons with meaningful text are labeled correctly
+- [ ] `[AT]` `[DEVICE]` Switch Control: entire Home screen scannable in a logical order (left-to-right, top-to-bottom)
+- [ ] `[AT]` `[DEVICE]` Switch Control: NavBar is the first scan group on every authenticated page
+- [ ] `[AT]` `[DEVICE]` No timer-triggered UI changes that interrupt scanning (no auto-dismiss, no auto-navigate)
+- [ ] `[DEVICE]` At X-Large text size, no content clipped or overflowing horizontally on iPhone 13 mini
+
+---
+
+### Legal — Footer presence
+
+- [ ] KPMG disclaimer present in footer of: Home, Settings, BillsView, GmailView, Drive, ProfileView
+- [ ] "© 2026 Quantum Moon LLC. All rights reserved." present on same pages
+- [ ] Privacy policy link present and navigates to /privacy (public, no auth required)
+- [ ] /privacy page loads without authentication
+
+---
+
+### Setup Needed — Summary of blocked cases
+
+The following test cases require external setup or a second user account and cannot be run solo:
+
+- `[NEEDS SETUP]` Approving an access request (requires a second Google account)
+- `[NEEDS SETUP]` Bills badge with new Gmail mail from a bill sender (requires connected Gmail + live email)
+- `[NEEDS SETUP]` Recent Bills section (requires Gmail connected + bill with sender_email + real email from that sender)
+- `[NEEDS SETUP]` Deep-link from Bills to a specific Gmail message
+- `[NEEDS SETUP]` Gmail read + reply flow (requires connected Gmail account)
+- `[NEEDS SETUP]` Google Drive file list + document view (requires connected Drive)
+- `[NEEDS SETUP]` Monarch Money connect (requires active Monarch Money account)
+- `[NEEDS SETUP]` Financial context disclosure in Chat (requires Monarch connected)
+- `[NEEDS SETUP]` Supporter invite accept + dashboard (requires second email)
+- `[NEEDS SETUP]` key_contact role — Supporters tab in dashboard
+- `[NEEDS SETUP]` Custom card with supporter_view visibility visible in supporter dashboard
+- `[NEEDS SETUP]` Admin approve/deny (requires a pending access request)
+- Font size fix: `zoom` added to CSS — no component changes

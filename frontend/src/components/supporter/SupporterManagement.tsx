@@ -74,6 +74,8 @@ export default function SupporterManagement() {
   const [inviting, setInviting] = useState(false)
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviteError, setInviteError] = useState('')
+  const [confirmingRevokeId, setConfirmingRevokeId] = useState<string | null>(null)
+  const [revokeError, setRevokeError] = useState('')
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -90,14 +92,15 @@ export default function SupporterManagement() {
 
   useEffect(() => { fetchAccounts() }, [fetchAccounts])
 
-  const revoke = async (id: string, name: string) => {
-    if (!window.confirm(`Remove ${name}'s access? This takes effect immediately.`)) return
+  const revoke = async (id: string) => {
+    setRevokeError('')
     try {
       const r = await fetch(`/api/supporter/accounts/${id}`, { method: 'DELETE', credentials: 'include' })
       if (!r.ok) throw new Error()
+      setConfirmingRevokeId(null)
       await fetchAccounts()
     } catch {
-      alert('Could not revoke access. Please try again.')
+      setRevokeError('Could not revoke access. Please try again.')
     }
   }
 
@@ -248,18 +251,41 @@ export default function SupporterManagement() {
                     Last active: {formatTime(a.last_active_at)}
                   </p>
                 </div>
-                <button
-                  onClick={() => revoke(a.id, a.name)}
-                  aria-label={`Revoke ${a.name}'s access`}
-                  style={{ ...BTN, minHeight: 48, fontSize: 15, background: 'transparent', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', flexShrink: 0 }}
-                >
-                  Revoke
-                </button>
+                {confirmingRevokeId === a.id ? (
+                  <>
+                    <button
+                      onClick={() => revoke(a.id)}
+                      aria-label={`Confirm revoke ${a.name}'s access`}
+                      style={{ ...BTN, minHeight: 64, minWidth: 64, fontSize: 14, background: 'var(--color-danger)', color: '#fff', border: 'none', flexShrink: 0, padding: '0 12px' }}
+                    >
+                      Revoke
+                    </button>
+                    <button
+                      onClick={() => { setConfirmingRevokeId(null); setRevokeError('') }}
+                      aria-label="Cancel revoke"
+                      style={{ ...BTN, minHeight: 64, minWidth: 64, fontSize: 14, background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)', flexShrink: 0, padding: '0 12px' }}
+                    >
+                      Keep
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingRevokeId(a.id)}
+                    aria-label={`Revoke ${a.name}'s access`}
+                    style={{ ...BTN, minHeight: 48, fontSize: 15, background: 'transparent', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', flexShrink: 0 }}
+                  >
+                    Revoke
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {revokeError && (
+        <p role="alert" style={{ margin: 0, fontSize: 16, color: 'var(--color-danger)' }}>{revokeError}</p>
+      )}
 
       {/* Revoked (collapsed) */}
       {revoked.length > 0 && (

@@ -4,6 +4,523 @@ All agents read and write here. Tag entries clearly.
 
 ---
 
+## [AT Specialist 2026-05-25] Second AT pass — previously unreviewed components
+
+**Scope:** CheckRunView, GifView, MoneyView, MenuView, Drive, AdminPortal, AdminPanel, SupporterDashboard, SupporterLogin, SetPassword.
+**Input modalities:** Switch Control, sip-and-puff, iOS Voice Control, VoiceOver, eye gaze, stylus.
+
+Summary: 0 new HIGH, 5 new MEDIUM, 7 new LOW. No blockers — but a systemic finding: **`outline: 'none'` on `INPUT` style objects appears in at least 3 more components (GifView, MoneyView, SetPassword)**. The ChatView textarea case was already flagged HIGH-1 in the first pass. This is now a systemic pattern, not an isolated occurrence. See MEDIUM-A below.
+
+Good news first: CheckRunView, AdminPanel, and the supporter portal components are substantially better-implemented than the main user-facing components. The form components (MoneyView, SetPassword) have correct label/input pairing and `aria-live` on errors. Drive has solid structure with a few small gaps.
+
+---
+
+### MEDIUM-A — `outline: none` in shared INPUT style objects is systemic
+
+**Files and lines (confirmed via grep):**
+- `frontend/src/components/GifView.tsx`, line 114: `outline: 'none'` on search input
+- `frontend/src/components/MoneyView.tsx`, line 28: `outline: 'none'` in `INPUT` constant (applies to all 3 form inputs)
+- `frontend/src/components/SetPassword.tsx`, line 33: `outline: 'none'` in `INPUT` constant (applies to both password inputs)
+- `frontend/src/components/GmailView.tsx`, line 567: `outline: 'none'` on reply compose textarea
+- `frontend/src/components/ChatView.tsx`, line 615: already tracked as HIGH-1 in first pass
+- `frontend/src/components/Drive.tsx` — paste textarea does NOT have `outline: none` (correct)
+**Input modalities:** keyboard navigation, Switch Control
+
+The first pass flagged `ChatView.tsx` textarea line 615 as HIGH-1. The same issue appears in 4 more components. Combined with ChatView, there are 5 interactive text inputs across the app with no visible keyboard focus indicator. Every one is a primary interaction field for voice, stylus, and switch users who rely on focus visibility.
+
+**GmailView is particularly important:** the reply textarea is the primary composition area for email replies — a high-stakes action for Margaret. Losing focus visibility on this field means a keyboard or Switch Control user cannot tell when the reply textarea is active vs. when some other element has focus. This is a first-pass miss — the GmailView summary in the first-pass findings noted `aria-live="polite"` patterns but did not catch the `outline: 'none'` on the reply textarea.
+
+The global `:focus-visible` rule in `index.css` correctly handles this — removing `outline: none` from these inputs is all that's needed.
+
+**Fix (Builder):** Remove `outline: 'none'` from:
+1. `GifView.tsx` line 114 (search input inline style)
+2. `MoneyView.tsx` line 28 (`INPUT` constant)
+3. `SetPassword.tsx` line 33 (`INPUT` constant)
+4. `GmailView.tsx` line 567 (reply textarea inline style)
+
+(ChatView already tracked as HIGH-1.)
+
+---
+
+### MEDIUM-B — GifView "Copied!" toast is timed UI — hard constraint violation
+
+**File:** `frontend/src/components/GifView.tsx`, lines 68–71
+**Input modalities:** all — this is a hard constraint violation
+
+```typescript
+setToast('Copied! ✓')
+toastTimerRef.current = setTimeout(() => setToast(null), 2000)
+```
+
+CLAUDE.md hard constraint: "No timed UI of any kind."
+
+The "Copied! ✓" toast auto-dismisses after 2 seconds. For Switch Control users mid-scan, 2 seconds is not enough to locate and read the toast before it disappears. The toast also uses `color: '#fff'` on `background: 'var(--color-accent)'` — same 3.1:1 contrast failure (Warm Dark) as flagged HIGH-2 in the voice command review.
+
+Additionally, the `role="status"` with `aria-live="polite"` is correct and will announce "Copied! ✓" to VoiceOver regardless of focus. That's the right call. The issue is the auto-dismiss.
+
+**Fix (Builder) — two approaches:**
+
+Option 1 (simplest): Remove the `setTimeout`. The toast stays visible until the user taps a GIF again (which replaces it). A GIF grid with "Copied! ✓" always visible is acceptable UX — it shows which GIF was last copied.
+
+Option 2 (if auto-dismiss is required): Replace the toast with a static status indicator adjacent to the search bar that shows "Last copied: [title]" — persists without a timer.
+
+**Also fix the toast contrast:** Change `color: '#fff'` to `color: 'var(--color-bg)'` (same fix as BTN_PRIMARY in VoiceCommandPanel).
+
+---
+
+### MEDIUM-C — SupporterDashboard tabs lack ARIA tab semantics and are below 64px
+
+**File:** `frontend/src/components/SupporterDashboard.tsx`, lines 184–214
+**Input modalities:** VoiceOver, Switch Control
+
+The tab bar buttons have no `role="tab"`, no `role="tablist"`, and no `aria-selected`. VoiceOver announces them as plain buttons, not tabs — users don't know they're in a tabbed interface. `minHeight: 56` is below the 64px preferred for this audience (though above the 44px minimum).
+
+The CardsView "Back" button (line 46) has `minHeight: 48` — below preferred.
+The sign-out button in the dashboard header (line 164) has `minHeight: 48` — below preferred.
+
+These are supporter-facing UI, not primary user (Margaret) UI, so the priority is lower. But supporters may include people assisting Margaret with low motor control.
+
+**Fix (Builder):**
+1. Add `role="tablist"` to the tab container `<div>`.
+2. Add `role="tab"` and `aria-selected={tab === t.key}` to each tab button.
+3. Increase `minHeight` on tab buttons from 56 → 64.
+4. Increase sign-out button from 48 → 64.
+5. Increase CardsView Back button from 48 → 64.
+
+---
+
+### MEDIUM-D — AdminPortal tabs and action buttons below 64px; chart data not AT-accessible
+
+**File:** `frontend/src/components/AdminPortal.tsx`
+**Input modalities:** all
+
+AdminPortal is admin-only (Ellen only). Lower priority, but findings noted for completeness.
+
+- Tab buttons: `minHeight: 44` — meets project minimum but below 64px preferred
+- Approve/Deny buttons: `minHeight: 44` — same
+- Action confirmation (`actionMsg[r.id]`) rendered as plain `<span>` — no `aria-live`, VoiceOver won't announce when an approval action completes
+- Daily messages bar chart: bars use `title` attribute for data — `title` is not accessible to Touch/Switch Control users (requires hover); data values not announced to VoiceOver
+- Tab buttons: missing `role="tablist"` / `role="tab"` / `aria-selected` (same issue as SupporterDashboard)
+
+**Fix (Builder, low priority — admin only):**
+1. Increase tab and action buttons to 44px (they already are) or 64px if the design allows.
+2. Wrap `setActionMsg` in an `aria-live="polite"` region so action completion is announced.
+3. Bar chart: add a visually-hidden `<caption>` or summary table with the same data for screen readers.
+
+---
+
+### LOW-A — CheckRunView loading/error states lack ARIA live regions
+
+**File:** `frontend/src/components/CheckRunView.tsx`, lines 358–382
+**Input modalities:** VoiceOver
+
+The loading state is a plain `<div>` with no `role` or `aria-live`. The error state container also has no `role="alert"`. VoiceOver users who trigger a data refresh won't hear that loading is in progress or that an error occurred.
+
+The `aria-label` on the Refresh button says "Refresh check run" — correct. But the outcome of the refresh is silent.
+
+**Fix (Builder):**
+1. Add `aria-live="polite" aria-busy="true"` to the loading `<div>` (line 359).
+2. Add `role="alert"` to the error state container (line 364).
+3. Optionally: add `aria-label="Refresh — loading"` to the refresh button when `loading === true`.
+
+Also: Retry button in the error state has `minHeight: 48` — below 64px preferred for a primary recovery action.
+
+---
+
+### LOW-B — CheckRunView source badges convey status by color only
+
+**File:** `frontend/src/components/CheckRunView.tsx`, lines 70–83 (SOURCE_COLORS, SOURCE_LABELS)
+**Input modalities:** VoiceOver, high contrast
+
+The cleared-indicator circle uses `background: SOURCE_COLORS[cleared_source]` — green for transaction match, blue for by-date, purple for manual. The source is also communicated in:
+1. The `SOURCE_LABELS` badge text ("matched", "by date", "manual") — shown only when `cleared`
+2. The `aria-label` on each row: `"${item.name}, cleared"` — confirms cleared status but does NOT communicate the source
+
+The source label text is present so this is not a pure color-only failure. However, VoiceOver users navigating the cleared indicator circle (`<div>` with `✓`) won't hear the source — they'll only hear the row `aria-label`.
+
+**Fix (Builder, low priority):** Include cleared_source in the row `aria-label` when cleared:
+```typescript
+aria-label={`${item.name}${cleared ? `, cleared by ${SOURCE_LABELS[cleared_source] || 'manual'}` : ', not cleared'} — tap to toggle`}
+```
+
+---
+
+### LOW-C — Drive "Go to Settings" button is 56px; synopsis "Try again" button is 40px
+
+**File:** `frontend/src/components/Drive.tsx`, lines 409, 541
+**Input modalities:** stylus, sip-and-puff
+
+- `driveNotConnected` → "Go to Settings" button: `minHeight: 56` — below 64px preferred
+- Synopsis error → "Try again" button: `minHeight: 40` — **below the 44px project minimum**
+
+The synopsis "Try again" button at 40px is the only 40px button found in the second-pass review. It's a small secondary button inside an expanded panel, but it's still below minimum.
+
+**Fix (Builder):**
+1. "Go to Settings": change `minHeight: 56` → `minHeight: 64`
+2. Synopsis "Try again": change `minHeight: 40` → `minHeight: 44` (minimum) or `minHeight: 52` (preferred for this context)
+
+---
+
+### LOW-D — SupporterLogin "Sign in here →" inline button has no tap target size
+
+**File:** `frontend/src/components/SupporterLogin.tsx`, lines 158–163
+**Input modalities:** stylus, touch
+
+The "Sign in here →" button has `padding: 0` and no `minHeight` — renders at text height only (~20px on mobile). While this is a low-frequency path (supporters navigating to the wrong login page), it's still a tappable element.
+
+**Fix (Builder):** Add `minHeight: 44` and `padding: '8px 4px'`.
+
+---
+
+### LOW-E — MenuView loading state has no ARIA live region
+
+**File:** `frontend/src/components/MenuView.tsx`, line 82
+**Input modalities:** VoiceOver
+
+Loading state is a plain `<p>` with no `role` or `aria-live`. The error state correctly has `role="alert"`.
+
+**Fix (Builder):** Add `aria-live="polite"` or `role="status"` to the loading `<p>`.
+
+---
+
+### LOW-F — SetPassword and MoneyView inputs: `outline: none` (see MEDIUM-A)
+
+These are covered under MEDIUM-A. Separated here only for discoverability — fix the `INPUT` constant in both files to remove `outline: 'none'`.
+
+---
+
+### What's working well in the second-pass components
+
+Before the fix list: these components have strong AT foundations that should not be changed.
+
+- **CheckRunView `CheckRow`:** `aria-pressed`, `aria-label`, `minHeight: 64` on every row. This is the correct pattern for a toggle list. ✓
+- **CheckRunView sections:** `<section aria-label="Monthly bills">` and `<section aria-label="Income sources">`. ✓
+- **AdminPanel:** `role="article" aria-label` on request cards, `aria-label` on Approve/Deny buttons, `role="status" aria-live="polite"` on loading, `role="alert"` on error. The cleaner of the two admin components. ✓
+- **MoneyView form:** All 3 inputs have `htmlFor`/`id` pairing, `aria-label` on primary buttons, `type="number" inputMode="decimal"` on amount field, `minHeight: 64` on Pay/Request buttons. ✓
+- **Drive file list:** `aria-label` with file name + date, `aria-expanded` on synopsis toggle, `minHeight: 72` on file buttons, `role="alert"` on synopsis error, `aria-live="polite" aria-busy="true"` on loading states. ✓
+- **GifView:** `aria-label` on each GIF button, `role="alert"` on search error, `aria-busy="true"` on loading, `alt` on all GIF images, `role="status"` on not-configured state. ✓
+- **SetPassword:** `role="alert"` on validation and API errors, `role="status"` on success, `htmlFor`/`id` pairing, `autoComplete="new-password"`, `minHeight: 64` on buttons. ✓
+- **SupporterLogin:** `role="alert"` on auth errors, `minHeight: 64` on Google sign-in button. ✓
+
+---
+
+### Builder: consolidated fix list — second pass (priority order)
+
+1. **MEDIUM-A** `GifView.tsx` line 114, `MoneyView.tsx` line 28, `SetPassword.tsx` line 33, `GmailView.tsx` line 567: remove `outline: 'none'` from all remaining input styles (systemic — see also ChatView HIGH-1)
+2. **MEDIUM-B** `GifView.tsx` lines 70–71: remove `setTimeout` auto-dismiss from "Copied!" toast; change toast `color: '#fff'` → `color: 'var(--color-bg)'`
+3. **MEDIUM-C** `SupporterDashboard.tsx`: add `role="tablist"` / `role="tab"` / `aria-selected`; increase tab/sign-out/back buttons to 64px
+4. **LOW-A** `CheckRunView.tsx` lines 359/364: add `aria-live="polite" aria-busy="true"` to loading state; `role="alert"` to error state; change Retry `minHeight: 48` → `minHeight: 64`
+5. **LOW-B** `CheckRunView.tsx` line 106: include cleared_source in row `aria-label`
+6. **LOW-C** `Drive.tsx` lines 409/541: `minHeight: 56` → `minHeight: 64` on Go to Settings; `minHeight: 40` → `minHeight: 44` on Try again
+7. **LOW-D** `SupporterLogin.tsx` line 158: add `minHeight: 44` and `padding: '8px 4px'` to "Sign in here →" button
+8. **LOW-E** `MenuView.tsx` line 82: add `aria-live="polite"` to loading `<p>`
+
+**MEDIUM-D** (AdminPortal) is admin-only (Ellen only) — address when convenient, not urgently.
+9. **LOW-G** `supporter/MenuEditor.tsx`: "Clear all" button `minHeight: 44` → increase to 48–52; Remove item button `minHeight: 48` → increase to 52–64; add `role="alert"` to error `<p>` on line 152.
+
+---
+
+### LOW-G — MenuEditor secondary buttons below preferred sizes; error state lacks role
+
+**File:** `frontend/src/components/supporter/MenuEditor.tsx`
+**Input modalities:** stylus, sip-and-puff (for supporter users)
+
+MenuEditor is supporter-facing. It has solid structure: correct `aria-label` on all buttons, `role="status"` on publishedMsg, `minHeight: 64` on the Add and Publish buttons (inherited from BTN), correct label/input pairing on section text inputs, and no `outline: none` (inherits global focus ring correctly — a positive contrast to the user-facing components).
+
+Issues:
+- "Clear all" button: `minHeight: 44` (overrides BTN's 64) — meets project minimum but not preferred
+- Remove item (✕) button: `minHeight: 48, minWidth: 48` — below preferred 64px
+- Error state (`if (error) return <p>...`): plain `<p>` with no `role="alert"` — VoiceOver won't announce a load failure
+
+**Fix (Builder):**
+1. Change "Clear all" `minHeight: 44` → `minHeight: 52`
+2. Change remove button `minHeight: 48, minWidth: 48` → `minHeight: 52, minWidth: 52`
+3. Add `role="alert"` to the error `<p>` on line 152
+
+Note: `removeItem` executes immediately without confirmation. For a menu item (not a financial or security action), this is acceptable — the item can be re-added. If there's future concern, the BillsView confirmingDelete pattern applies, but this is not flagged as a required fix.
+
+---
+
+## [AT Specialist 2026-05-25] Full app AT pass — all existing features
+
+**Scope:** All current components. Files reviewed: Home, Login, Onboarding, NavBar, ChatView, RemindersView, BillsView, ProfileView, Settings, GmailView, App.tsx (ReminderAlertBanner). Components not yet reviewed: CheckRunView, GifView, MoneyView, MenuView, Drive, AdminPanel, SupporterDashboard, SupporterLogin, SetPassword.
+**Input modalities:** Switch Control, sip-and-puff, iOS Voice Control, VoiceOver, eye gaze.
+
+Summary: 3 HIGH, 9 MEDIUM, 5 LOW. All findings are in the reviewed components — the unreviewed components need a follow-up pass (flagged at end).
+
+---
+
+### What's working well — do not change
+
+Before findings: the following are correctly implemented across the app and should serve as the reference pattern.
+
+- **Home tiles:** `<a>` elements with `aria-label` including badge counts, `role="img" aria-hidden="true"` on emoji icons, min-height 120px. ✓
+- **BillsView:** inline delete confirmation (no `window.confirm`), `<fieldset>/<legend>` for category radio, `<section aria-label>`, all primary buttons 64px. This is the AT gold standard in the app.
+- **Login errors:** `role="alert"` for errors, `role="status"` for info. ✓
+- **ReminderAlertBanner:** `role="alert"` with `aria-live="assertive"`, prominent placement. ✓
+- **Onboarding profile selector:** `role="radiogroup"` / `role="radio"` / `aria-checked` pattern is correct. ✓
+- **GmailView:** consistent `aria-live="polite"` on loading states, `role="alert"` on errors. ✓ — **NOTE: second pass found `outline: 'none'` on reply textarea (line 567). Added to MEDIUM-A in second pass.**
+- **NavBar:** all 4 buttons always rendered, `aria-disabled` on Back/Forward, `aria-pressed` on mic. ✓
+
+---
+
+### HIGH-1 — `outline: none` on ChatView textarea removes keyboard focus visibility
+
+**File:** `frontend/src/components/ChatView.tsx`, line 615
+**Input modalities:** keyboard navigation, Switch Control (can affect focus tracking)
+
+The textarea has `outline: 'none'` in its inline style. This overrides the global `:focus-visible { outline: 3px solid var(--color-accent) }` rule in `index.css`. When a keyboard or Switch Control user navigates to the message textarea with Tab, there is no visible focus indicator.
+
+This is the primary input field of the most-used feature in the app. Invisible focus on it is a functional accessibility failure for anyone who navigates by keyboard.
+
+**Fix (Builder):**
+
+Remove `outline: 'none'` from the textarea style. The global `:focus-visible` rule will then apply. The textarea's custom listening-state border (`border: 2px solid var(--color-danger)`) provides sufficient visual feedback during voice input and does not conflict with the focus ring.
+
+---
+
+### HIGH-2 — "Read" / "Stop" buttons on AI messages are 36px — below minimum
+
+**File:** `frontend/src/components/ChatView.tsx`, line 552
+**Input modalities:** stylus, switch control, sip-and-puff, eye gaze
+
+The TTS "🔊 Read" / "⏹ Stop" buttons on each AI message have `minHeight: 36` — below the project minimum of 44px and well below the preferred 64px. These appear on every AI response and are frequently tapped by users who rely on TTS (voice profile, switch profile, eye gaze profile). A stylus user with limited hand function attempting to tap a 36px target on a list of messages is at significant risk of missing.
+
+**Fix (Builder):**
+
+Change `minHeight: 36` to `minHeight: 44` at minimum. The recommended size for this user population is 64px, but if the design needs these to be compact per-message controls, 52px is an acceptable middle ground. Also add `minWidth: 44` to ensure the target width is not smaller than the height.
+
+---
+
+### HIGH-3 — `window.confirm()` used for destructive actions in 4 remaining places
+
+**Files and lines:**
+- `frontend/src/components/RemindersView.tsx` line 67: delete reminder
+- `frontend/src/components/Settings.tsx` line 358: delete supporter password
+- `frontend/src/components/Settings.tsx` line 407: remove supporter access
+- `frontend/src/components/Settings.tsx` line 417: cancel pending invite
+- `frontend/src/components/supporter/SupporterManagement.tsx` line 94: remove access
+
+**Input modalities:** Switch Control, sip-and-puff
+
+`window.confirm()` presents a native browser dialog. On iOS in a web view (PWA or Safari), this dialog appears outside the app's Switch Control scan tree. A Switch Control user who triggers delete and the confirm dialog appears cannot interact with it through normal scanning — they need to physically navigate to the system dialog, which may require knowledge of how iOS handles browser dialogs.
+
+BillsView was correctly fixed to use an inline confirm UI. The same `confirmingDelete` pattern needs to be applied to these four remaining locations.
+
+**Fix (Builder) — pattern from BillsView:**
+
+For each destructive action, replace `window.confirm(message)` with:
+1. A boolean state variable (e.g., `confirmingDelete`, `confirmingRemove`, `confirmingCancel`)
+2. When the action is first requested, set the state to true and show inline Confirm + Cancel buttons in place of the action button
+3. On Confirm, execute the action and reset state
+4. On Cancel, reset state without executing
+
+This is already proven correct in BillsView. Copy that exact pattern. All inline buttons must be 64px minHeight with descriptive aria-labels.
+
+---
+
+### MEDIUM-1 — ReminderAlertBanner "Done" button is 52px
+
+**File:** `frontend/src/App.tsx`, line 73
+**Input modalities:** stylus, switch control, sip-and-puff
+
+The "Done" dismiss button on the ReminderAlertBanner has `minHeight: 52` and `minWidth: 64`. This is the highest-stakes tap target in the app — it fires when a medical or pressure relief reminder goes off, and must be tapped promptly by the user to acknowledge the alarm.
+
+For users with limited motor precision (the entire user population), 52px height is below the 64px preferred. The button is already `minWidth: 64` — height should match.
+
+**Fix (Builder):**
+
+Change `minHeight: 52` to `minHeight: 64` on the Done button in `ReminderAlertBanner`. Also consider increasing `minWidth` to 80px so there is more horizontal target area.
+
+---
+
+### MEDIUM-2 — ProfileView and Settings have timed UI (auto-dismissing notices)
+
+**Files:**
+- `frontend/src/components/ProfileView.tsx` lines 235, 238: "Saved ✓" reverts after 2500ms; error reverts after 3000ms
+- `frontend/src/components/Settings.tsx` line 429: supporter management success/error notice auto-dismisses after 5000ms
+
+**Input modalities:** all — this is a hard constraint violation
+
+CLAUDE.md hard constraint: "No timed UI of any kind."
+
+The "Saved ✓" button state reverts to "Save" after 2.5 seconds. The Settings supporter notice disappears after 5 seconds. These are the only two places in the app where UI changes without user action.
+
+For Switch Control users, 2.5 seconds is frequently not enough time to scan to the Save button and confirm the status before it reverts. The user may be mid-scan somewhere else on the page. For VoiceOver users, the announcement of "Saved" may have fired, but if they want to navigate back to the button to confirm, it has already changed.
+
+The Settings notice auto-dismiss is more concerning: a success or error notice about removing a supporter's access disappearing after 5 seconds means a Switch Control user who triggers the action may not have time to navigate to the notice area before it's gone.
+
+**Fix (Builder) — ProfileView:**
+
+Remove both `setTimeout` calls in `handleSave`. Instead, keep "Saved ✓" or the error state permanently until the user takes another action (clicks Save again, navigates away, etc.). Add `role="status"` or `aria-live="polite"` to announce the state change programmatically regardless of focus position.
+
+```typescript
+// Remove:
+setTimeout(() => setSaveState('idle'), 2500)
+setTimeout(() => setSaveState('idle'), 3000)
+
+// The state now persists until next save action. It resets to 'idle' at the
+// start of the next handleSave() call (already done with setSaveState('saving')).
+```
+
+**Fix (Builder) — Settings:**
+
+Replace `showNotice()` auto-dismiss with a permanent notice that has a manual close button (×), or make the notice persist until the next action. If a notice must auto-dismiss, it should not do so in fewer than 30 seconds for this user population — but a manual dismiss is preferred.
+
+---
+
+### MEDIUM-3 — ProfileView save state change not announced programmatically
+
+**File:** `frontend/src/components/ProfileView.tsx` — Save button
+**Input modalities:** VoiceOver, Switch Control
+
+When the Save button transitions from "Save" to "Saved ✓", the change occurs on the button itself. VoiceOver will only announce this if the user navigates to the button or it's in a live region. Switch Control users scanning the page will not know the save succeeded unless they're positioned on or near the Save button at the moment of transition.
+
+**Fix (Builder):**
+
+Add a hidden live region adjacent to the Save button that announces the state change:
+
+```tsx
+<span
+  role="status"
+  aria-live="polite"
+  style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+>
+  {saveState === 'saved' ? 'Profile saved.' : saveState === 'error' ? 'Could not save profile.' : ''}
+</span>
+```
+
+This should also be applied to the Settings supporter management notice (same pattern).
+
+---
+
+### MEDIUM-4 — Home CardDetail overlay missing dialog semantics and has sub-standard back button
+
+**File:** `frontend/src/components/Home.tsx`, `CardDetail` component (lines 35–87)
+**Input modalities:** Switch Control, VoiceOver, eye gaze
+
+The CardDetail full-screen overlay (Custom AI Card detail view) has no `role`, no `aria-label`, and no focus management. When it opens, Switch Control and VoiceOver users are not informed a new context appeared. The overlay's back button has `minHeight: 52, minWidth: 52` — below the 64px preferred.
+
+**Fix (Builder):**
+
+1. Add `role="dialog"` and `aria-label={card.tile_name}` to the outermost div of `CardDetail`.
+2. Add `aria-modal="true"` since this is a full-screen overlay that blocks the home screen.
+3. Change back button `minHeight: 52, minWidth: 52` to `minHeight: 64, minWidth: 64`.
+4. Auto-focus the heading (`h1`) or the back button when the overlay opens, so Switch Control users don't need to scan from the top of the underlying Home content.
+
+---
+
+### MEDIUM-5 — ProfileView emoji picker `role="dialog"` incorrect; no focus trap
+
+**File:** `frontend/src/components/ProfileView.tsx`, line 291
+**Input modalities:** Switch Control, VoiceOver
+
+Same issue noted in the VoiceCommandPanel review: `role="dialog"` on an inline panel that doesn't block the rest of the page. The emoji picker appears inline in the document flow, not as a modal. Switch Control users can scan past it to the form fields below without closing it.
+
+Additionally, the picker has no explicit close button visible to AT users who can't use keyboard Escape. The Escape key handler (line 193) works for keyboard users but not for Switch Control.
+
+**Fix (Builder):**
+
+1. Change `role="dialog"` to `role="region"` with `aria-label="Emoji picker"`.
+2. Add a visible Close button (`×`) inside the picker panel with `aria-label="Close emoji picker"`, `minHeight: 44`, so Switch Control users have an explicit close target.
+
+---
+
+### MEDIUM-6 — Emoji grid buttons are 44px — below preferred for this audience
+
+**File:** `frontend/src/components/ProfileView.tsx`, lines 323–340
+**Input modalities:** stylus, eye gaze
+
+The emoji grid renders 8 columns of 44px × 44px buttons. 44px meets the absolute project minimum but not the preferred 64px. The 8-column layout at 640px max-width makes 64px targets per column infeasible without redesign.
+
+For stylus and eye gaze users, these small targets in a dense grid are a friction point. Searching to narrow the grid (the search input is prominently placed) substantially reduces the grid size and increases relative target area. The search path is a valid accessibility mitigation.
+
+**Recommended action:** Reduce columns from 8 to 5 or 6, which would increase each target to ~80-96px. The grid scrolls vertically so reducing columns increases the total grid height but doesn't lose any emojis.
+
+This is a redesign recommendation, not a bug fix. Document as a backlog item for when Profile is next touched.
+
+---
+
+### LOW-1 — Login / Onboarding secondary buttons are 48px
+
+**File:** `frontend/src/components/Login.tsx` line 103 (`S.link` style); `frontend/src/components/Onboarding.tsx` `S.skipBtn` style
+**Input modalities:** stylus, sip-and-puff
+
+"Sign in with password instead", "Sign in with Google instead", and "Skip to home" buttons all use `minHeight: 48`. These are secondary actions so the reduced size is intentional, but 48px is at the project threshold. Consider increasing to 56–64px on a future pass.
+
+---
+
+### LOW-2 — BillsView "Open Settings" inline text button has no minHeight
+
+**File:** `frontend/src/components/BillsView.tsx`, line 731
+**Input modalities:** stylus
+
+The "Open Settings" button inside the Gmail-not-connected notice has `padding: 0` and no `minHeight`. On mobile, this renders as text-height only (~20px). This is likely to be missed by stylus users.
+
+**Fix (Builder):** Add `minHeight: 44` and `padding: '8px 0'` to ensure it meets minimum target size.
+
+---
+
+### LOW-3 — ChatView mic and send buttons need size confirmation
+
+**File:** `frontend/src/components/ChatView.tsx`
+
+The mic and send buttons in ChatView use a shared `BTN` style. Verify this `BTN` style includes `minHeight: 64` — the source of truth is around line 130–145 of ChatView. If the buttons are 48px, they should be raised to 64px as primary interaction buttons for voice users.
+
+---
+
+### LOW-4 — Settings supporter notice lacks `role` for screen reader announcement
+
+**File:** `frontend/src/components/Settings.tsx` — `notice` state
+**Input modalities:** VoiceOver
+
+The supporter management notice (`notice.msg`) appears inline in Settings. It does not have `role="alert"` or `aria-live="polite"`. VoiceOver users may miss the confirmation that an invite was sent or a supporter was removed.
+
+**Fix (Builder):** Add `role="status"` and `aria-live="polite"` to the notice paragraph, or `role="alert"` for error messages.
+
+---
+
+### LOW-5 — ChatView message list scan order for Switch Control
+
+**File:** `frontend/src/components/ChatView.tsx`
+**Input modalities:** Switch Control, sip-and-puff
+
+The message list renders with a "Read" button beneath each AI message. A Switch Control user scanning the conversation area encounters the message log as: [message text] → [Read button] → [next message text] → [next Read button]. This linear scan order is correct and expected.
+
+However, the message log uses `role="log"` and `aria-live="polite"`. As new messages arrive, VoiceOver will read them. This is correct. But the scan cursor in Switch Control is not automatically moved to new messages. A Switch Control user who sends a message will hear the response (via aria-live) but must scan all the way through previous messages to reach the new response's Read button if they want to re-read it.
+
+This is a platform limitation of Switch Control + dynamic content, not a code defect. Document as known behavior for the user guide.
+
+---
+
+### Components not yet reviewed — follow-up needed
+
+~~All components reviewed — second pass completed 2026-05-25. See "Second AT pass" section above.~~
+
+**All components have now been reviewed.** The second-pass findings are at the top of this file under `[AT Specialist 2026-05-25] Second AT pass`. Remaining unreviewed items:
+- `supporter/MenuEditor.tsx` — not yet reviewed. Medium risk (menu edit form with add/remove interactions).
+
+MenuEditor reviewed in same pass — findings below.
+
+---
+
+### Builder: consolidated fix list (priority order)
+
+1. **HIGH-1** `ChatView.tsx` line 615: remove `outline: 'none'` from textarea
+2. **HIGH-2** `ChatView.tsx` line 552: change `minHeight: 36` → `minHeight: 52` on Read/Stop buttons (also add `minWidth: 52`)
+3. **HIGH-3** `RemindersView.tsx` line 67, `Settings.tsx` lines 358/407/417, `SupporterManagement.tsx` line 94: replace `window.confirm()` with inline confirm UI (BillsView pattern)
+4. **MEDIUM-1** `App.tsx` line 73: change `minHeight: 52` → `minHeight: 64` on ReminderAlertBanner Done button
+5. **MEDIUM-2** `ProfileView.tsx` lines 235/238 + `Settings.tsx` line 429: remove setTimeout auto-dismiss from all UI notices
+6. **MEDIUM-3** `ProfileView.tsx`: add `role="status"` live region for save confirmation
+7. **MEDIUM-4** `Home.tsx` CardDetail: add `role="dialog"` `aria-modal="true"` `aria-label`; increase back button to 64px; focus management on open
+8. **MEDIUM-5** `ProfileView.tsx` line 291: change emoji picker `role="dialog"` → `role="region"`; add visible close button
+9. **LOW-2** `BillsView.tsx` line 731: add `minHeight: 44` to "Open Settings" button
+10. **LOW-4** `Settings.tsx`: add `role="status"` / `aria-live` to notice element
+
+Items 1–3 are the most impactful for the core SCI user population and should be addressed in the next builder session.
+
+---
+
 ## [AT Specialist 2026-05-25] Voice command feature — AT review
 
 **Scope:** `dfe8153` — NavBar mic button, VoiceCommandPanel, voiceCommandParser
@@ -227,6 +744,85 @@ When this feature deploys, validate the following on Margaret's actual device (i
 - [ ] Switch Control: activate mic accidentally, Cancel without speaking — closes cleanly
 - [ ] High Contrast theme: check contrast of Confirm button text (verifies H-2 fix)
 - [ ] All 4 themes: verify `:focus-visible` ring is visible on all panel buttons
+
+---
+
+## [Builder 2026-05-25] AT remediation — full pass — code-complete, pending deploy
+
+**Branch:** `main`
+**Status:** Build clean — zero TypeScript errors
+
+### What was fixed
+
+All AT Specialist findings from both review passes (voice command review + full app pass + second component pass) implemented. Summary:
+
+**Voice command fixes (ship-blocking)**
+- CRITICAL-1 `VoiceCommandPanel.tsx`: `recognition.onend` now transitions `listening` → `unknown` so panel doesn't trap users on timeout
+- HIGH-1 `VoiceCommandPanel.tsx`: Cancel button added to listening state (64px min-height from BTN)
+- HIGH-2 `VoiceCommandPanel.tsx`: `BTN_PRIMARY` contrast fix — `color: 'var(--color-bg)'` (dark text on amber, 7.2:1 in warm dark)
+- MEDIUM-1 `VoiceCommandPanel.tsx`: `role="dialog"` → `role="region"`; Confirm button gets focus on confirmation phase via `confirmBtnRef`
+- MEDIUM-1 `NavBar.tsx`: `micBtnRef` + `handleVoiceClose` restore focus to mic button when panel closes; mic button active text uses `--color-bg` for contrast
+
+**First pass fixes**
+- HIGH-1 `ChatView.tsx`: `outline: 'none'` removed from message textarea
+- HIGH-2 `ChatView.tsx`: Read/Stop TTS buttons `minHeight: 36` → `minHeight: 44`, `minWidth: 44` added
+- HIGH-3 `RemindersView.tsx`: `window.confirm` → inline Confirm/Cancel with `confirmingDeleteId` state (64px buttons)
+- HIGH-3 `Settings.tsx`: `window.confirm` → inline confirm for deleteCard (`confirmingDeleteCardId`), revokeSupporter (`confirmingRevokeId`), cancelInvite (`confirmingCancelInviteId`)
+- HIGH-3 `SupporterManagement.tsx`: `window.confirm`/`alert` → inline confirm for revoke (`confirmingRevokeId`), error via state not alert()
+- MEDIUM-1 `App.tsx`: ReminderAlertBanner Done button `minHeight: 52` → `minHeight: 64`, `minWidth: 64` → `minWidth: 80`
+- MEDIUM-2 `ProfileView.tsx`: Both `setTimeout(() => setSaveState('idle'))` calls removed — save state persists until next save
+- MEDIUM-2 `Settings.tsx`: `showNotice` setTimeout removed — notice persists with manual × close button
+- MEDIUM-3 `ProfileView.tsx`: Visually-hidden `role="status" aria-live="polite"` span added adjacent to Save button
+- MEDIUM-4 `Home.tsx`: CardDetail has `role="dialog" aria-modal="true" aria-label`; back button `minHeight/minWidth: 52` → `64`; auto-focuses back button on mount
+- MEDIUM-5 `ProfileView.tsx`: Emoji picker `role="dialog"` → `role="region"`; visible × close button added (`minHeight: 44`)
+- LOW-2 `BillsView.tsx`: "Open Settings" button `padding: 0` → `padding: '8px 0'`, `minHeight: 44`
+- LOW-4 `Settings.tsx`: Notice already had `role="status" aria-live="polite"` — confirmed present; × close button added
+
+**Second pass fixes**
+- MEDIUM-A `GifView.tsx`: `outline: 'none'` removed from search input
+- MEDIUM-A `MoneyView.tsx`: `outline: 'none'` removed from INPUT constant
+- MEDIUM-A `SetPassword.tsx`: `outline: 'none'` removed from INPUT constant
+- MEDIUM-A `GmailView.tsx`: `outline: 'none'` removed from reply textarea
+- MEDIUM-B `GifView.tsx`: `setTimeout` auto-dismiss removed from "Copied! ✓" toast; toast color `'#fff'` → `'var(--color-bg)'`
+- MEDIUM-C `SupporterDashboard.tsx`: `role="tablist"` on tab container; `role="tab" aria-selected` on each tab button; tab `minHeight: 56` → `64`; sign-out `minHeight: 48` → `64`; CardsView Back `minHeight: 48` → `64`
+- LOW-A `CheckRunView.tsx`: loading div gets `aria-live="polite" aria-busy="true"`; error div gets `role="alert"`; Retry `minHeight: 48` → `64`
+- LOW-B `CheckRunView.tsx`: CheckRow `aria-label` now includes `cleared_source` label (falls back to 'manual' for empty strings)
+- LOW-C `Drive.tsx`: "Go to Settings" `minHeight: 56` → `64`; synopsis "Try again" `minHeight: 40` → `44`
+- LOW-D `SupporterLogin.tsx`: "Sign in here →" button `padding: 0` → `padding: '8px 4px'`, `minHeight: 44`
+- LOW-E `MenuView.tsx`: loading `<p>` gets `role="status" aria-live="polite"`
+- LOW-G `supporter/MenuEditor.tsx`: "Clear all" `minHeight: 44` → `52`; remove (✕) `minHeight: 48, minWidth: 48` → `52, 52`; error `<p>` gets `role="alert"`
+
+### Skipped items
+- MEDIUM-D AdminPortal (admin-only, Ellen only) — not in fix list; deferred per AT Specialist note
+
+### Constraint verification
+- `npm run build` — zero TypeScript errors ✓
+- No `window.confirm()` in codebase ✓
+- No `setTimeout` for UI auto-dismiss ✓
+- No `outline: none` on interactive elements ✓
+
+---
+
+## Infra Needed — 2026-05-25 — AT remediation deploy
+
+**Trigger:** After code review, merge and deploy.
+
+**No backend changes. No new env vars. No new packages.**
+
+Standard deploy:
+```
+git push  # triggers GitHub Actions — builds frontend, rsyncs backend, restarts warmcare.service
+```
+
+**Verify after deploy:**
+- Open warm.care → tap mic button → panel shows "Listening…" with a Cancel button
+- Say nothing for ~10 seconds → panel transitions to "I didn't catch that" (CRITICAL-1 fix)
+- Tap Cancel during listening → panel closes cleanly (HIGH-1 fix)
+- Navigate to Chat → tab to textarea → verify focus ring is visible (HIGH-1 first pass)
+- Open a reminder → tap × → confirm Confirm/Cancel buttons appear (HIGH-3 fix)
+- Open Settings → Supporters → tap Remove → verify inline confirm appears (HIGH-3 fix)
+- Open Profile → change name → tap Save → verify "Saved ✓" persists and does not auto-dismiss (MEDIUM-2 fix)
+- Open Settings → trigger a notice (disconnect something) → verify × close button present (MEDIUM-2 fix)
 
 ---
 

@@ -406,7 +406,7 @@ export default function Drive() {
               onClick={() => navigate('/settings')}
               aria-label="Go to Settings to connect Google Drive"
               style={{
-                minHeight: 56, padding: '0 28px', borderRadius: 14,
+                minHeight: 64, padding: '0 28px', borderRadius: 14,
                 background: 'var(--color-accent)', color: '#fff',
                 border: 'none', fontSize: 18, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
@@ -539,7 +539,7 @@ export default function Drive() {
                           }}
                           aria-label="Retry summary"
                           style={{
-                            minHeight: 40, padding: '0 16px', borderRadius: 10,
+                            minHeight: 44, padding: '0 16px', borderRadius: 10,
                             background: 'var(--color-surface-raised)',
                             color: 'var(--color-text)', border: '2px solid var(--color-border)',
                             fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',

@@ -8,7 +8,7 @@
  * Sign out
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useProfile } from '../context/ProfileContext'
@@ -231,6 +231,11 @@ export default function Settings() {
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviteError, setInviteError] = useState('')
 
+  // Inline confirm states (replace window.confirm)
+  const [confirmingDeleteCardId, setConfirmingDeleteCardId] = useState<string | null>(null)
+  const [confirmingRevokeId, setConfirmingRevokeId] = useState<string | null>(null)
+  const [confirmingCancelInviteId, setConfirmingCancelInviteId] = useState<string | null>(null)
+
   // Custom AI Cards
   interface CustomCard {
     id: string
@@ -250,8 +255,6 @@ export default function Settings() {
   const [cardSaving, setCardSaving] = useState(false)
   const [cardError, setCardError] = useState('')
   const [editingCard, setEditingCard] = useState<CustomCard | null>(null)
-
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Load connection status & handle OAuth redirect params ──────────────────
 
@@ -354,10 +357,10 @@ export default function Settings() {
     }
   }
 
-  async function deleteCard(id: string, name: string) {
-    if (!window.confirm(`Delete "${name}"?`)) return
+  async function deleteCard(id: string) {
     await fetch(`/api/cards/${id}`, { method: 'DELETE', credentials: 'include' })
     setCards(prev => prev.filter(c => c.id !== id))
+    setConfirmingDeleteCardId(null)
   }
 
   async function refreshCard(id: string) {
@@ -403,20 +406,20 @@ export default function Settings() {
     }
   }
 
-  async function revokeSupporter(id: string, name: string) {
-    if (!window.confirm(`Remove ${name}'s access?`)) return
+  async function revokeSupporter(id: string) {
     try {
       await fetch(`/api/margaret/supporters/${id}`, { method: 'DELETE', ...FETCH_OPTS })
+      setConfirmingRevokeId(null)
       fetchSupporters()
     } catch {
       showNotice('Could not remove access. Try again.', false)
     }
   }
 
-  async function cancelInvite(id: string, email: string) {
-    if (!window.confirm(`Cancel the invite to ${email}?`)) return
+  async function cancelInvite(id: string) {
     try {
       await fetch(`/api/margaret/supporters/invites/${id}`, { method: 'DELETE', ...FETCH_OPTS })
+      setConfirmingCancelInviteId(null)
       fetchSupporters()
     } catch {
       showNotice('Could not cancel invite. Try again.', false)
@@ -425,8 +428,7 @@ export default function Settings() {
 
   function showNotice(msg: string, ok: boolean) {
     setNotice({ msg, ok })
-    if (noticeTimer.current) clearTimeout(noticeTimer.current)
-    noticeTimer.current = setTimeout(() => setNotice(null), 5000)
+    // No auto-dismiss — user closes via × button (MEDIUM-2: no timed UI)
   }
 
   function friendlyOAuthError(code: string): string {
@@ -589,7 +591,7 @@ export default function Settings() {
         </h1>
       </div>
 
-      {/* ── Flash notice ── */}
+      {/* ── Flash notice ── LOW-4: role+aria-live; MEDIUM-2: manual close button instead of setTimeout */}
       {notice && (
         <div
           role="status"
@@ -602,9 +604,30 @@ export default function Settings() {
             color: notice.ok ? '#7fe07f' : '#ff7f7f',
             fontSize: 16,
             fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
           }}
         >
-          {notice.msg}
+          <span style={{ flex: 1 }}>{notice.msg}</span>
+          <button
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss notice"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              fontSize: 20,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: '0 4px',
+              minHeight: 44,
+              minWidth: 44,
+              fontFamily: 'inherit',
+            }}
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -880,11 +903,26 @@ export default function Settings() {
                   aria-label={`Edit ${card.tile_name}`}
                   style={{ ...BTN, minHeight: 40, minWidth: 40, fontSize: 14, fontWeight: 700, background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 10px', color: 'var(--color-text)' }}
                 >Edit</button>
-                <button
-                  onClick={() => deleteCard(card.id, card.tile_name)}
-                  aria-label={`Delete ${card.tile_name}`}
-                  style={{ ...BTN, minHeight: 40, minWidth: 40, fontSize: 14, fontWeight: 700, background: 'transparent', border: '1px solid var(--color-danger)', borderRadius: 10, padding: '0 10px', color: 'var(--color-danger)' }}
-                >Delete</button>
+                {confirmingDeleteCardId === card.id ? (
+                  <>
+                    <button
+                      onClick={() => deleteCard(card.id)}
+                      aria-label={`Confirm delete ${card.tile_name}`}
+                      style={{ ...BTN, minHeight: 64, minWidth: 64, fontSize: 13, fontWeight: 700, background: 'var(--color-danger)', border: 'none', borderRadius: 10, padding: '0 10px', color: '#fff' }}
+                    >Delete</button>
+                    <button
+                      onClick={() => setConfirmingDeleteCardId(null)}
+                      aria-label="Cancel delete"
+                      style={{ ...BTN, minHeight: 64, minWidth: 64, fontSize: 13, fontWeight: 700, background: 'var(--color-surface-raised)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 10px', color: 'var(--color-text)' }}
+                    >Cancel</button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingDeleteCardId(card.id)}
+                    aria-label={`Delete ${card.tile_name}`}
+                    style={{ ...BTN, minHeight: 40, minWidth: 40, fontSize: 14, fontWeight: 700, background: 'transparent', border: '1px solid var(--color-danger)', borderRadius: 10, padding: '0 10px', color: 'var(--color-danger)' }}
+                  >Delete</button>
+                )}
               </div>
             </div>
           </div>
@@ -1225,13 +1263,32 @@ export default function Settings() {
                   <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--color-text)' }}>{inv.email}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--color-text-muted)' }}>{inv.role_label} · Invite pending</p>
                 </div>
-                <button
-                  onClick={() => cancelInvite(inv.id, inv.email)}
-                  aria-label={`Cancel invite to ${inv.email}`}
-                  style={{ ...BTN, minHeight: 44, fontSize: 13, background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
-                >
-                  Cancel
-                </button>
+                {confirmingCancelInviteId === inv.id ? (
+                  <>
+                    <button
+                      onClick={() => cancelInvite(inv.id)}
+                      aria-label={`Confirm cancel invite to ${inv.email}`}
+                      style={{ ...BTN, minHeight: 64, fontSize: 13, background: 'var(--color-danger)', color: '#fff', border: 'none', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                    >
+                      Cancel invite
+                    </button>
+                    <button
+                      onClick={() => setConfirmingCancelInviteId(null)}
+                      aria-label="Keep invite"
+                      style={{ ...BTN, minHeight: 64, fontSize: 13, background: 'var(--color-surface-raised)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                    >
+                      Keep
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingCancelInviteId(inv.id)}
+                    aria-label={`Cancel invite to ${inv.email}`}
+                    style={{ ...BTN, minHeight: 44, fontSize: 13, background: 'transparent', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1249,13 +1306,32 @@ export default function Settings() {
                 <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--color-text)' }}>{s.name}</p>
                 <p style={{ margin: '2px 0 0', fontSize: 14, color: 'var(--color-text-muted)' }}>{s.role_label} · {s.email}</p>
               </div>
-              <button
-                onClick={() => revokeSupporter(s.id, s.name)}
-                aria-label={`Remove ${s.name}`}
-                style={{ ...BTN, minHeight: 48, minWidth: 48, fontSize: 14, fontWeight: 700, background: 'transparent', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
-              >
-                Remove
-              </button>
+              {confirmingRevokeId === s.id ? (
+                <>
+                  <button
+                    onClick={() => revokeSupporter(s.id)}
+                    aria-label={`Confirm remove ${s.name}'s access`}
+                    style={{ ...BTN, minHeight: 64, minWidth: 64, fontSize: 14, fontWeight: 700, background: 'var(--color-danger)', color: '#fff', border: 'none', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                  >
+                    Remove
+                  </button>
+                  <button
+                    onClick={() => setConfirmingRevokeId(null)}
+                    aria-label="Cancel remove"
+                    style={{ ...BTN, minHeight: 64, minWidth: 64, fontSize: 14, fontWeight: 700, background: 'var(--color-surface-raised)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                  >
+                    Keep
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmingRevokeId(s.id)}
+                  aria-label={`Remove ${s.name}`}
+                  style={{ ...BTN, minHeight: 48, minWidth: 48, fontSize: 14, fontWeight: 700, background: 'transparent', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', borderRadius: 10, padding: '0 12px', flexShrink: 0 }}
+                >
+                  Remove
+                </button>
+              )}
             </div>
           ))
         )}

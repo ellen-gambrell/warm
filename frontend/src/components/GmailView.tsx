@@ -564,7 +564,6 @@ function EmailViewer({ messageId, onBack }: EmailViewerProps) {
               background: 'var(--color-bg)',
               color: 'var(--color-text)',
               resize: 'vertical',
-              outline: 'none',
             }}
           />
 

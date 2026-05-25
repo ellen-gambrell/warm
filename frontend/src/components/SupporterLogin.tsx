@@ -157,7 +157,7 @@ export default function SupporterLogin() {
             Are you the account holder?{' '}
             <button
               onClick={() => navigate('/')}
-              style={{ background: 'none', border: 'none', color: 'var(--color-accent)', fontSize: 16, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+              style={{ background: 'none', border: 'none', color: 'var(--color-accent)', fontSize: 16, fontWeight: 600, cursor: 'pointer', padding: '8px 4px', minHeight: 44 }}
             >
               Sign in here →
             </button>

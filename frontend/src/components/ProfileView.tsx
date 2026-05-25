@@ -232,10 +232,10 @@ export default function ProfileView() {
         profile_emoji: updated.profile_emoji,
       })
       setSaveState('saved')
-      setTimeout(() => setSaveState('idle'), 2500)
+      // No setTimeout — state persists until next save (MEDIUM-2: no timed UI)
     } catch {
       setSaveState('error')
-      setTimeout(() => setSaveState('idle'), 3000)
+      // No setTimeout — error state persists until next save attempt
     }
   }
 
@@ -285,10 +285,10 @@ export default function ProfileView() {
           {emoji}
         </button>
 
-        {/* Picker panel */}
+        {/* Picker panel — MEDIUM-5: role="region" (not "dialog" — not modal) + visible close button */}
         {pickerOpen && (
           <div
-            role="dialog"
+            role="region"
             aria-label="Emoji picker"
             style={{
               marginTop: 10,
@@ -298,19 +298,41 @@ export default function ProfileView() {
               padding: 12,
             }}
           >
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Search emoji…"
-              aria-label="Search emoji"
-              value={emojiSearch}
-              onChange={e => setEmojiSearch(e.target.value)}
-              style={{
-                ...INPUT_STYLE,
-                minHeight: 52,
-                marginBottom: 10,
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Search emoji…"
+                aria-label="Search emoji"
+                value={emojiSearch}
+                onChange={e => setEmojiSearch(e.target.value)}
+                style={{
+                  ...INPUT_STYLE,
+                  flex: 1,
+                  minHeight: 44,
+                }}
+              />
+              <button
+                onClick={() => { setPickerOpen(false); setEmojiSearch('') }}
+                aria-label="Close emoji picker"
+                style={{
+                  minHeight: 44,
+                  minWidth: 44,
+                  borderRadius: 10,
+                  border: '2px solid var(--color-border)',
+                  background: 'var(--color-surface-raised)',
+                  color: 'var(--color-text)',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >×</button>
+            </div>
             <div
               style={{
                 display: 'grid',
@@ -504,27 +526,38 @@ export default function ProfileView() {
           Could not save profile. Please try again.
         </p>
       )}
-      <button
-        onClick={handleSave}
-        disabled={saveState === 'saving'}
-        aria-label="Save profile"
-        style={{
-          minHeight: 64,
-          borderRadius: 16,
-          border: 'none',
-          fontFamily: 'inherit',
-          cursor: saveState === 'saving' ? 'default' : 'pointer',
-          fontWeight: 700,
-          fontSize: 18,
-          transition: 'opacity 0.15s',
-          background: saveState === 'saved' ? '#2d7a2d' : saveState === 'error' ? '#7a2d2d' : 'var(--color-accent)',
-          color: '#fff',
-          opacity: saveState === 'saving' ? 0.6 : 1,
-          marginBottom: 40,
-        }}
+      {/* MEDIUM-3: visually-hidden live region announces save state to VoiceOver regardless of focus position */}
+      <span
+        role="status"
+        aria-live="polite"
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
       >
-        {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved ✓' : 'Save'}
-      </button>
+        {saveState === 'saved' ? 'Profile saved.' : saveState === 'error' ? 'Could not save profile.' : ''}
+      </span>
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={handleSave}
+          disabled={saveState === 'saving'}
+          aria-label="Save profile"
+          style={{
+            minHeight: 64,
+            borderRadius: 16,
+            border: 'none',
+            fontFamily: 'inherit',
+            cursor: saveState === 'saving' ? 'default' : 'pointer',
+            fontWeight: 700,
+            fontSize: 18,
+            transition: 'opacity 0.15s',
+            background: saveState === 'saved' ? '#2d7a2d' : saveState === 'error' ? '#7a2d2d' : 'var(--color-accent)',
+            color: '#fff',
+            opacity: saveState === 'saving' ? 0.6 : 1,
+            marginBottom: 40,
+            width: '100%',
+          }}
+        >
+          {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved ✓' : 'Save'}
+        </button>
+      </div>
 
       <footer style={{ textAlign: 'center', fontSize: 12, color: 'var(--color-text-muted)', paddingBottom: 8 }}>
         <p style={{ margin: 0 }}>

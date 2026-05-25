@@ -29,7 +29,6 @@ const INPUT: React.CSSProperties = {
   fontSize: 18,
   fontFamily: 'inherit',
   color: 'var(--color-text)',
-  outline: 'none',
   boxSizing: 'border-box',
 }
 

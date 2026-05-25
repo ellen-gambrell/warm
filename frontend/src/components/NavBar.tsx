@@ -10,7 +10,7 @@
  * - Voice command panel expands below the nav row when active.
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNav } from '../context/NavContext'
 import { useReminders } from '../context/ReminderContext'
 import { navigate } from '../App'
@@ -39,6 +39,13 @@ export default function NavBar() {
   const { back, forward, canBack, canForward } = useNav()
   const { reminders, activeAlert, dismissAlert, refreshReminders } = useReminders()
   const [voiceOpen, setVoiceOpen] = useState(false)
+  const micBtnRef = useRef<HTMLButtonElement>(null)
+
+  // MEDIUM-1: restore focus to mic button when voice panel closes
+  const handleVoiceClose = () => {
+    setVoiceOpen(false)
+    setTimeout(() => micBtnRef.current?.focus(), 0)
+  }
 
   return (
     <div
@@ -107,12 +114,13 @@ export default function NavBar() {
         </button>
 
         <button
+          ref={micBtnRef}
           onClick={() => setVoiceOpen(o => !o)}
           aria-label="Voice command"
           aria-pressed={voiceOpen}
           style={{
             ...BTN_BASE,
-            color: voiceOpen ? '#fff' : 'var(--color-text)',
+            color: voiceOpen ? 'var(--color-bg)' : 'var(--color-text)',
             background: voiceOpen ? 'var(--color-accent)' : 'var(--color-surface)',
             border: voiceOpen ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
           }}
@@ -123,7 +131,7 @@ export default function NavBar() {
 
       {voiceOpen && (
         <VoiceCommandPanel
-          onClose={() => setVoiceOpen(false)}
+          onClose={handleVoiceClose}
           reminders={reminders}
           activeAlert={activeAlert}
           dismissAlert={dismissAlert}

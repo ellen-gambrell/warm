@@ -43,7 +43,7 @@ function CardsView() {
         <button
           onClick={() => setActive(null)}
           aria-label="Back to cards"
-          style={{ minHeight: 48, padding: '0 18px', borderRadius: 12, border: '2px solid var(--color-border)', background: 'transparent', color: 'var(--color-text)', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}
+          style={{ minHeight: 64, padding: '0 18px', borderRadius: 12, border: '2px solid var(--color-border)', background: 'transparent', color: 'var(--color-text)', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 20 }}
         >← Back</button>
         <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: 'var(--color-text)' }}>{active.tile_name}</h2>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-muted)' }}>{ts}</p>
@@ -162,7 +162,7 @@ export default function SupporterDashboard() {
               onClick={doLogout}
               disabled={loggingOut}
               style={{
-                minHeight: 48,
+                minHeight: 64,
                 padding: '0 18px',
                 borderRadius: 12,
                 border: '2px solid var(--color-border)',
@@ -181,9 +181,10 @@ export default function SupporterDashboard() {
         </div>
       </div>
 
-      {/* ── Tab bar ── */}
+      {/* ── Tab bar ── MEDIUM-C: tablist/tab ARIA semantics + 64px target */}
       {tabs.length > 1 && (
         <div
+          role="tablist"
           style={{
             display: 'flex',
             background: 'var(--color-surface)',
@@ -193,10 +194,12 @@ export default function SupporterDashboard() {
           {tabs.map(t => (
             <button
               key={t.key}
+              role="tab"
+              aria-selected={tab === t.key}
               onClick={() => setTab(t.key)}
               style={{
                 flex: 1,
-                minHeight: 56,
+                minHeight: 64,
                 border: 'none',
                 borderBottom: tab === t.key ? '3px solid var(--color-accent)' : '3px solid transparent',
                 background: 'transparent',

@@ -32,6 +32,7 @@ export default function RemindersView() {
   const [intervalMin, setIntervalMin]   = useState(120)
   const [saving, setSaving]             = useState(false)
   const [error, setError]               = useState('')
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
 
   async function createReminder() {
     if (!label.trim()) return
@@ -63,9 +64,9 @@ export default function RemindersView() {
     await refreshReminders()
   }
 
-  async function deleteReminder(id: string, label: string) {
-    if (!window.confirm(`Delete "${label}" reminder?`)) return
+  async function confirmDeleteReminder(id: string) {
     await fetch(`/api/reminders/${id}`, { method: 'DELETE', ...FETCH_OPTS })
+    setConfirmingDeleteId(null)
     await refreshReminders()
   }
 
@@ -127,22 +128,63 @@ export default function RemindersView() {
               {r.enabled ? 'Pause' : 'Resume'}
             </button>
 
-            <button
-              onClick={() => deleteReminder(r.id, r.label)}
-              aria-label={`Delete ${r.label} reminder`}
-              style={{
-                ...BTN,
-                minHeight: 48,
-                minWidth: 48,
-                fontSize: 24,
-                background: 'transparent',
-                color: 'var(--color-danger)',
-                padding: 0,
-                flexShrink: 0,
-              }}
-            >
-              ×
-            </button>
+            {confirmingDeleteId === r.id ? (
+              <>
+                <button
+                  onClick={() => confirmDeleteReminder(r.id)}
+                  aria-label={`Confirm delete ${r.label} reminder`}
+                  style={{
+                    ...BTN,
+                    minHeight: 64,
+                    minWidth: 64,
+                    fontSize: 14,
+                    background: 'var(--color-danger)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 12,
+                    padding: '0 12px',
+                    flexShrink: 0,
+                  }}
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setConfirmingDeleteId(null)}
+                  aria-label="Cancel delete"
+                  style={{
+                    ...BTN,
+                    minHeight: 64,
+                    minWidth: 64,
+                    fontSize: 14,
+                    background: 'var(--color-surface-raised)',
+                    color: 'var(--color-text)',
+                    border: '2px solid var(--color-border)',
+                    borderRadius: 12,
+                    padding: '0 12px',
+                    flexShrink: 0,
+                  }}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirmingDeleteId(r.id)}
+                aria-label={`Delete ${r.label} reminder`}
+                style={{
+                  ...BTN,
+                  minHeight: 48,
+                  minWidth: 48,
+                  fontSize: 24,
+                  background: 'transparent',
+                  color: 'var(--color-danger)',
+                  padding: 0,
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            )}
           </div>
         ))}
       </div>

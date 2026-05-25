@@ -737,8 +737,9 @@ export default function BillsView({ onOpen }: BillsViewProps) {
                 fontFamily: 'inherit',
                 fontSize: 'var(--fs-base)',
                 fontWeight: 600,
-                padding: 0,
+                padding: '8px 0',
                 textDecoration: 'underline',
+                minHeight: 44,
               }}
             >
               Open Settings

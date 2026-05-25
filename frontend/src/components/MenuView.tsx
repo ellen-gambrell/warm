@@ -79,7 +79,7 @@ export default function MenuView() {
 
       {/* Loading */}
       {loading && (
-        <p style={{ fontSize: 20, color: 'var(--color-text-muted)', textAlign: 'center', marginTop: 60 }}>
+        <p role="status" aria-live="polite" style={{ fontSize: 20, color: 'var(--color-text-muted)', textAlign: 'center', marginTop: 60 }}>
           Loading menu…
         </p>
       )}

@@ -103,7 +103,7 @@ function CheckRow({ item, onToggle }: RowProps) {
     <button
       onClick={() => onToggle(item.id, cleared)}
       aria-pressed={cleared}
-      aria-label={`${item.name}${cleared ? ', cleared' : ', not cleared'} — tap to toggle`}
+      aria-label={`${item.name}${cleared ? `, cleared by ${SOURCE_LABELS[cleared_source] || 'manual'}` : ', not cleared'} — tap to toggle`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -355,13 +355,14 @@ export default function CheckRunView() {
       </div>
 
       {/* ── Loading / error states ── */}
+      {/* LOW-A: aria-live + aria-busy on loading state; role=alert on error; Retry 64px */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-text-muted)' }}>
+        <div aria-live="polite" aria-busy="true" style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-text-muted)' }}>
           Loading…
         </div>
       )}
       {!loading && error && (
-        <div style={{
+        <div role="alert" style={{
           background: 'var(--color-surface)', borderRadius: 16, padding: '24px',
           textAlign: 'center', color: 'var(--color-text-muted)',
           border: '2px solid var(--color-border)',
@@ -375,7 +376,7 @@ export default function CheckRunView() {
               marginTop: 16, padding: '10px 24px', borderRadius: 12,
               border: 'none', background: 'var(--color-accent)',
               color: '#fff', fontFamily: 'inherit', fontSize: 15,
-              fontWeight: 600, cursor: 'pointer', minHeight: 48,
+              fontWeight: 600, cursor: 'pointer', minHeight: 64,
             }}
           >Retry</button>
         </div>

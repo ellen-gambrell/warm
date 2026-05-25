@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useProfile } from '../context/ProfileContext'
 import { useAuth } from '../context/AuthContext'
 import { navigate } from '../App'
@@ -37,22 +37,34 @@ function CardDetail({ card, onClose }: { card: CustomCard; onClose: () => void }
     ? `Updated ${new Date(card.last_run_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
     : 'First update pending'
 
+  // MEDIUM-4: auto-focus the back button when detail overlay opens
+  const backBtnRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    backBtnRef.current?.focus()
+  }, [])
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'var(--color-bg)',
-      zIndex: 200,
-      display: 'flex', flexDirection: 'column',
-      padding: '24px 16px',
-      maxWidth: 640, margin: '0 auto',
-      overflowY: 'auto',
-    }}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={card.tile_name}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'var(--color-bg)',
+        zIndex: 200,
+        display: 'flex', flexDirection: 'column',
+        padding: '24px 16px',
+        maxWidth: 640, margin: '0 auto',
+        overflowY: 'auto',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button
+          ref={backBtnRef}
           onClick={onClose}
           aria-label="Back"
           style={{
-            minHeight: 52, minWidth: 52, borderRadius: 14,
+            minHeight: 64, minWidth: 64, borderRadius: 14,
             background: 'var(--color-surface)', border: '2px solid var(--color-border)',
             color: 'var(--color-text)', fontSize: 20, cursor: 'pointer', fontFamily: 'inherit',
           }}

@@ -149,7 +149,7 @@ export default function MenuEditor({ primaryName = 'the account holder' }: MenuE
   }
 
   if (loading) return <p style={{ padding: 24, fontSize: 20, color: 'var(--color-text-muted)' }}>Loading menu…</p>
-  if (error) return <p style={{ padding: 24, fontSize: 20, color: 'var(--color-danger)' }}>{error}</p>
+  if (error) return <p role="alert" style={{ padding: 24, fontSize: 20, color: 'var(--color-danger)' }}>{error}</p>
   if (!menuData) return null
 
   return (
@@ -191,7 +191,7 @@ export default function MenuEditor({ primaryName = 'the account holder' }: MenuE
                 aria-label={`Clear all ${section.label}`}
                 style={{
                   ...BTN,
-                  minHeight: 44,
+                  minHeight: 52,
                   padding: '0 14px',
                   fontSize: 15,
                   background: 'transparent',
@@ -225,8 +225,8 @@ export default function MenuEditor({ primaryName = 'the account holder' }: MenuE
                 aria-label={`Remove ${item.name}`}
                 style={{
                   ...BTN,
-                  minHeight: 48,
-                  minWidth: 48,
+                  minHeight: 52,
+                  minWidth: 52,
                   padding: 0,
                   fontSize: 22,
                   background: 'transparent',

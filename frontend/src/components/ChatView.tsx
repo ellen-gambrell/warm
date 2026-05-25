@@ -549,7 +549,8 @@ export default function ChatView() {
                   fontSize: 15,
                   cursor: 'pointer',
                   fontFamily: 'inherit',
-                  minHeight: 36,
+                  minHeight: 44,
+                  minWidth: 44,
                   transition: 'background 0.15s, color 0.15s',
                 }}
               >
@@ -612,7 +613,6 @@ export default function ChatView() {
             fontFamily: 'inherit',
             color: 'var(--color-text)',
             minHeight: 56,
-            outline: 'none',
             lineHeight: 1.5,
             transition: 'border-color 0.15s',
           }}

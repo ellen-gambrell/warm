@@ -65,9 +65,9 @@ export default function GifView() {
   const copyGif = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url)
+      // MEDIUM-B: no setTimeout — toast persists until next GIF is copied or user navigates away
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
       setToast('Copied! ✓')
-      toastTimerRef.current = setTimeout(() => setToast(null), 2000)
     } catch {
       // fallback: silently ignore if clipboard not available
     }
@@ -111,7 +111,6 @@ export default function GifView() {
             fontSize: 18,
             fontFamily: 'inherit',
             color: 'var(--color-text)',
-            outline: 'none',
           }}
         />
         <button
@@ -229,7 +228,7 @@ export default function GifView() {
             left: '50%',
             transform: 'translateX(-50%)',
             background: 'var(--color-accent)',
-            color: '#fff',
+            color: 'var(--color-bg)', // MEDIUM-B: contrast fix — dark bg text on accent (same fix as BTN_PRIMARY)
             borderRadius: 16,
             padding: '14px 24px',
             fontSize: 18,

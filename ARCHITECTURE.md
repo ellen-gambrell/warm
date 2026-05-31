@@ -9,7 +9,7 @@
 ```
 Browser (Margaret's iPhone / iPad / desktop)
     │
-    │  HTTPS (Cloudflare → Hetzner 5.78.110.203)
+    │  HTTPS (Hetzner 5.78.110.203)
     ▼
 nginx (TLS termination, static file serving)
     │

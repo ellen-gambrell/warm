@@ -327,8 +327,8 @@ def margaret_list_supporters(_user: dict = Depends(get_current_user)):
         "FROM supporter_accounts ORDER BY created_at ASC"
     ).fetchall()
     invite_rows = db.execute(
-        "SELECT id, email, role, expires_at, created_at FROM supporter_invites "
-        "WHERE accepted_at IS NULL AND expires_at > ? ORDER BY created_at ASC",
+        "SELECT id, email, role, expires_at FROM supporter_invites "
+        "WHERE accepted_at IS NULL AND expires_at > ? ORDER BY expires_at ASC",
         (now,),
     ).fetchall()
     db.close()
